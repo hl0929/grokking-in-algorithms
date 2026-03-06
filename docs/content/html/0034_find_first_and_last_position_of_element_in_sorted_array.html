@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二分查找查找范围可视化</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f8fafc;
+            --target-color: #fbbf24;
+            --highlight-color: #6366f1;
+            --text-main: #1e293b;
+            --pointer-left: #ef4444;
+            --pointer-right: #3b82f6;
+            --pointer-mid: #10b981;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+
+        /* 数组视图 */
+        .array-view {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 4rem;
+            position: relative;
+            padding-top: 2rem;
+        }
+
+        .cell-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.4s ease;
+        }
+
+        .cell.active { background-color: #eef2ff; border-color: var(--primary); }
+        .cell.target { background-color: var(--target-color); border-color: #d97706; color: white; }
+        .cell.discarded { opacity: 0.3; transform: scale(0.9); }
+
+        /* 指针 */
+        .pointer {
+            position: absolute;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+        .p-left { background: var(--pointer-left); top: -25px; }
+        .p-right { background: var(--pointer-right); top: -25px; }
+        .p-mid { background: var(--pointer-mid); bottom: -25px; }
+
+        /* 面板 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-label { font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem; }
+        .stat-value { font-family: monospace; font-weight: bold; font-size: 1.1rem; }
+
+        .info-panel {
+            background: #f1f5f9;
+            padding: 1.2rem;
+            border-radius: 1rem;
+            border-left: 5px solid var(--primary);
+            min-height: 60px;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .btn-main {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        }
+        .btn-main:hover { background: #4f46e5; }
+        .btn-sub {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .phase-indicator {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        svg { width: 24px; height: 24px; fill: currentColor; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Range Search 可视化</h1>
+    <div class="subtitle">寻找目标值 3 的起始和终止位置</div>
+
+    <div class="phase-indicator" id="phase-text">第 1 阶段：查找左边界</div>
+
+    <div class="array-view" id="array-container">
+        <!-- JS 注入 -->
+    </div>
+
+    <div class="stats">
+        <div class="stat-card"><div class="stat-label">Left</div><div class="stat-value" id="val-left">0</div></div>
+        <div class="stat-card"><div class="stat-label">Mid</div><div class="stat-value" id="val-mid">-</div></div>
+        <div class="stat-card"><div class="stat-label">Right</div><div class="stat-value" id="val-right">4</div></div>
+    </div>
+
+    <div class="info-panel" id="log">
+        准备就绪。点击播放按钮观察二分查找如何收缩边界。
+    </div>
+
+    <div class="controls">
+        <button class="btn-sub" id="reset-btn" title="重置">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <button class="btn-main" id="play-btn">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="btn-sub" id="next-btn" title="下一步">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+    </div>
+</div>
+
+<script>
+    const nums = [1, 2, 3, 3, 4];
+    const target = 3;
+    let steps = [];
+    let currentStep = -1;
+    let isPlaying = false;
+    let timer = null;
+
+    // 预计算所有步骤
+    function generateSteps() {
+        let res = [];
+        
+        // 查找左边界
+        function search(findLeft) {
+            let left = 0, right = nums.length - 1;
+            let pos = -1;
+            const phase = findLeft ? "左边界查找" : "右边界查找";
+            
+            while (left <= right) {
+                let mid = Math.floor((left + right) / 2);
+                res.push({ left, right, mid, pos, findLeft, phase, action: `检查 mid=${mid}` });
+                
+                if (nums[mid] === target) {
+                    pos = mid;
+                    if (findLeft) {
+                        right = mid - 1;
+                        res.push({ left, right, mid, pos, findLeft, phase, action: "找到目标！继续向左收缩查找更早的出现。" });
+                    } else {
+                        left = mid + 1;
+                        res.push({ left, right, mid, pos, findLeft, phase, action: "找到目标！继续向右收缩查找更晚的出现。" });
+                    }
+                } else if (nums[mid] > target) {
+                    right = mid - 1;
+                    res.push({ left, right, mid, pos, findLeft, phase, action: "nums[mid] > target，向左半部分查找。" });
+                } else {
+                    left = mid + 1;
+                    res.push({ left, right, mid, pos, findLeft, phase, action: "nums[mid] < target，向右半部分查找。" });
+                }
+            }
+            res.push({ left, right, mid: -1, pos, findLeft, phase, action: `查找完成，${phase}结果为: ${pos}` });
+            return pos;
+        }
+
+        const l = search(true);
+        const r = search(false);
+        res.push({ left: -1, right: -1, mid: -1, pos: [l, r], finished: true, action: `最终范围结果: [${l}, ${r}]` });
+        return res;
+    }
+
+    steps = generateSteps();
+
+    // 初始化 UI
+    const container = document.getElementById('array-container');
+    nums.forEach((val, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'cell-wrapper';
+        wrapper.innerHTML = `
+            <div class="cell" id="cell-${i}">${val}</div>
+        `;
+        container.appendChild(wrapper);
+    });
+
+    // 创建指针元素
+    const pL = document.createElement('div'); pL.className = 'pointer p-left'; pL.innerText = 'L';
+    const pR = document.createElement('div'); pR.className = 'pointer p-right'; pR.innerText = 'R';
+    const pM = document.createElement('div'); pM.className = 'pointer p-mid'; pM.innerText = 'Mid';
+    container.appendChild(pL);
+    container.appendChild(pR);
+    container.appendChild(pM);
+
+    function updateUI() {
+        if (currentStep < 0) return;
+        const s = steps[currentStep];
+        
+        document.getElementById('phase-text').innerText = s.phase || "已完成";
+        document.getElementById('log').innerHTML = s.action;
+        document.getElementById('val-left').innerText = s.left === -1 ? '-' : s.left;
+        document.getElementById('val-right').innerText = s.right === -1 ? '-' : s.right;
+        document.getElementById('val-mid').innerText = s.mid === -1 ? '-' : s.mid;
+
+        // 更新单元格状态
+        nums.forEach((_, i) => {
+            const cell = document.getElementById(`cell-${i}`);
+            cell.className = 'cell';
+            if (s.finished) {
+                if (i >= s.pos[0] && i <= s.pos[1]) cell.classList.add('target');
+                return;
+            }
+            if (i < s.left || i > s.right) cell.classList.add('discarded');
+            if (i === s.mid) cell.classList.add('active');
+        });
+
+        // 移动指针
+        const movePointer = (el, idx) => {
+            if (idx < 0 || idx >= nums.length) {
+                el.style.opacity = '0';
+            } else {
+                el.style.opacity = '1';
+                const cell = container.children[idx];
+                el.style.left = `${cell.offsetLeft + cell.offsetWidth/2 - el.offsetWidth/2}px`;
+            }
+        };
+
+        movePointer(pL, s.left);
+        movePointer(pR, s.right);
+        movePointer(pM, s.mid);
+    }
+
+    function next() {
+        if (currentStep < steps.length - 1) {
+            currentStep++;
+            updateUI();
+        } else {
+            stop();
+        }
+    }
+
+    function stop() {
+        isPlaying = false;
+        clearInterval(timer);
+        document.getElementById('play-icon').style.display = 'block';
+        document.getElementById('pause-icon').style.display = 'none';
+    }
+
+    document.getElementById('play-btn').onclick = () => {
+        if (isPlaying) {
+            stop();
+        } else {
+            if (currentStep >= steps.length - 1) currentStep = -1;
+            isPlaying = true;
+            document.getElementById('play-icon').style.display = 'none';
+            document.getElementById('pause-icon').style.display = 'block';
+            timer = setInterval(next, 1000);
+        }
+    };
+
+    document.getElementById('next-btn').onclick = () => { stop(); next(); };
+    document.getElementById('reset-btn').onclick = () => {
+        stop();
+        currentStep = -1;
+        nums.forEach((_, i) => document.getElementById(`cell-${i}`).className = 'cell');
+        pL.style.opacity = pR.style.opacity = pM.style.opacity = '0';
+        document.getElementById('log').innerText = "已重置。";
+    };
+
+</script>
+</body>
+</html>

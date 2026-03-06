@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>根据身高重建队列可视化</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --accent: #f59e0b;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+
+        /* 列表展示 */
+        .stage-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .list-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            min-height: 80px;
+            padding: 1rem;
+            background: #f1f5f9;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .person-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 70px;
+            height: 70px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .person-node.highlight {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+            transform: translateY(-5px);
+            z-index: 10;
+        }
+
+        .height-val { font-weight: 800; font-size: 1.2rem; color: var(--primary); }
+        .k-val { font-size: 0.75rem; color: #64748b; }
+
+        /* 指示器 */
+        .info-panel {
+            background: #eef2ff;
+            padding: 1.2rem;
+            border-radius: 1rem;
+            border-left: 5px solid var(--primary);
+            margin-bottom: 2rem;
+            font-size: 1rem;
+            line-height: 1.6;
+            min-height: 60px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .btn-main {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-sub { background: none; border: none; cursor: pointer; color: #64748b; }
+        .btn-sub:hover { color: var(--primary); }
+
+        /* 排序说明 */
+        .sort-rules {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 2rem;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+        .rule-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        svg { width: 24px; height: 24px; fill: currentColor; }
+
+        /* 动画过渡组 */
+        .flip-list-move {
+            transition: transform 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>重建队列过程演示</h1>
+    <div class="subtitle">输入: [[7,0], [4,4], [7,1], [5,0], [6,1], [5,2]]</div>
+
+    <div class="sort-rules">
+        <div class="rule-item"><span class="dot" style="background: #ef4444"></span> 身高 h 降序</div>
+        <div class="rule-item"><span class="dot" style="background: #3b82f6"></span> k 值升序</div>
+    </div>
+
+    <div class="stage-title">1. 排序后的待处理列表 (Sorted People)</div>
+    <div class="list-container" id="sorted-list"></div>
+
+    <div class="stage-title">2. 结果队列 (Final Queue)</div>
+    <div class="list-container" id="result-queue"></div>
+
+    <div class="info-panel" id="log">
+        点击播放按钮开始演示。贪心策略：先排高个子，矮个子根据 k 值插入对应索引。
+    </div>
+
+    <div class="controls">
+        <button class="btn-sub" id="reset-btn" title="重置">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <button class="btn-main" id="play-btn">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="btn-sub" id="next-btn" title="下一步">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+    </div>
+</div>
+
+<script>
+    const people = [[7, 0], [4, 4], [7, 1], [5, 0], [6, 1], [5, 2]];
+    // 排序逻辑：身高降序，k值升序
+    const sortedPeople = [...people].sort((a, b) => {
+        if (a[0] !== b[0]) return b[0] - a[0];
+        return a[1] - b[1];
+    });
+
+    let currentIdx = 0;
+    let finalQueue = [];
+    let isPlaying = false;
+    let timer = null;
+
+    const sortedEl = document.getElementById('sorted-list');
+    const resultEl = document.getElementById('result-queue');
+    const logEl = document.getElementById('log');
+
+    function createNode(p) {
+        const div = document.createElement('div');
+        div.className = 'person-node';
+        div.innerHTML = `
+            <span class="height-val">${p[0]}</span>
+            <span class="k-val">k=${p[1]}</span>
+        `;
+        return div;
+    }
+
+    function init() {
+        sortedEl.innerHTML = '';
+        resultEl.innerHTML = '';
+        sortedPeople.forEach(p => sortedEl.appendChild(createNode(p)));
+        logEl.innerHTML = "已根据身高 (降序) 和 k (升序) 完成预排序。准备开始逐个插入。";
+    }
+
+    function step() {
+        if (currentIdx >= sortedPeople.length) {
+            stop();
+            logEl.innerHTML = "<b>重建完成！</b> 所有人都根据其 k 值找到了正确的位置。";
+            return;
+        }
+
+        const person = sortedPeople[currentIdx];
+        const insertPos = person[1];
+
+        // 高亮处理中的节点
+        const nodes = sortedEl.children;
+        for(let n of nodes) n.classList.remove('highlight');
+        nodes[currentIdx].classList.add('highlight');
+        nodes[currentIdx].style.opacity = '0.5';
+
+        // 插入逻辑
+        finalQueue.splice(insertPos, 0, person);
+        
+        // 渲染结果队列
+        renderResult(insertPos);
+
+        logEl.innerHTML = `处理 [${person[0]}, ${person[1]}]: <br>身高为 ${person[0]}，前面应有 ${person[1]} 个更高的人。<b>插入索引 ${insertPos}</b>。`;
+        
+        currentIdx++;
+    }
+
+    function renderResult(highlightIdx) {
+        resultEl.innerHTML = '';
+        finalQueue.forEach((p, i) => {
+            const node = createNode(p);
+            if (i === highlightIdx) node.classList.add('highlight');
+            resultEl.appendChild(node);
+        });
+    }
+
+    function stop() {
+        isPlaying = false;
+        clearInterval(timer);
+        document.getElementById('play-icon').style.display = 'block';
+        document.getElementById('pause-icon').style.display = 'none';
+    }
+
+    document.getElementById('play-btn').onclick = () => {
+        if (isPlaying) {
+            stop();
+        } else {
+            if (currentIdx >= sortedPeople.length) reset();
+            isPlaying = true;
+            document.getElementById('play-icon').style.display = 'none';
+            document.getElementById('pause-icon').style.display = 'block';
+            timer = setInterval(step, 1500);
+        }
+    };
+
+    document.getElementById('next-btn').onclick = () => { stop(); step(); };
+    
+    function reset() {
+        stop();
+        currentIdx = 0;
+        finalQueue = [];
+        init();
+    }
+    
+    document.getElementById('reset-btn').onclick = reset;
+
+    init();
+</script>
+</body>
+</html>

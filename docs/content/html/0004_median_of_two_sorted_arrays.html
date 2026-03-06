@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中位数：二分切分法可视化</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #10b981;
+            --bg: #f8fafc;
+            --text-main: #1e293b;
+            --divider: #ef4444;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+
+        /* 数组展示 */
+        .array-row {
+            display: flex;
+            align-items: center;
+            margin: 2rem 0;
+            gap: 10px;
+            position: relative;
+        }
+
+        .array-label {
+            width: 80px;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .slots {
+            display: flex;
+            gap: 6px;
+            position: relative;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .cell.left-part { background-color: #eef2ff; border-color: var(--primary); color: var(--primary); }
+        .cell.right-part { background-color: #f0fdf4; border-color: var(--secondary); color: var(--secondary); }
+
+        /* 切割线 */
+        .cut-line {
+            position: absolute;
+            width: 4px;
+            height: 70px;
+            background-color: var(--divider);
+            top: -10px;
+            z-index: 10;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .cut-line::after {
+            content: 'CUT';
+            position: absolute;
+            top: -25px;
+            left: -15px;
+            font-size: 10px;
+            background: var(--divider);
+            color: white;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        /* 仪表盘 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 1.2rem;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-title { font-size: 0.8rem; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .comparison-box { display: flex; justify-content: space-around; align-items: center; }
+        .comp-item { text-align: center; }
+        .comp-val { font-family: monospace; font-size: 1.2rem; font-weight: bold; }
+        .comp-op { font-size: 1.5rem; color: #cbd5e1; }
+        .comp-ok { color: var(--secondary); }
+        .comp-fail { color: var(--divider); }
+
+        .info-panel {
+            background: #fffbeb;
+            padding: 1rem;
+            border-radius: 1rem;
+            border-left: 5px solid #f59e0b;
+            min-height: 60px;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.8rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-reset { background: #64748b; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>中位数：二分切分法可视化</h1>
+    <div class="subtitle">nums1 = [1, 3], nums2 = [2, 4, 5, 6]</div>
+
+    <div class="dashboard">
+        <div class="stat-card">
+            <div class="stat-title">条件 1: Left1 ≤ Right2</div>
+            <div class="comparison-box">
+                <div class="comp-item"><div class="comp-val" id="L1">-∞</div><div class="stat-title">L1</div></div>
+                <div class="comp-op" id="OP1">≤</div>
+                <div class="comp-item"><div class="comp-val" id="R2">+∞</div><div class="stat-title">R2</div></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">条件 2: Left2 ≤ Right1</div>
+            <div class="comparison-box">
+                <div class="comp-item"><div class="comp-val" id="L2">-∞</div><div class="stat-title">L2</div></div>
+                <div class="comp-op" id="OP2">≤</div>
+                <div class="comp-item"><div class="comp-val" id="R1">+∞</div><div class="stat-title">R1</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="array-row">
+        <div class="array-label">nums1 (短)</div>
+        <div class="slots" id="array1"></div>
+        <div class="cut-line" id="cut1"></div>
+    </div>
+
+    <div class="array-row">
+        <div class="array-label">nums2 (长)</div>
+        <div class="slots" id="array2"></div>
+        <div class="cut-line" id="cut2"></div>
+    </div>
+
+    <div class="info-panel" id="log">
+        准备就绪。目标：在短数组中二分搜索切割位置，使得左右元素个数平衡。
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-reset" onclick="reset()">重置</button>
+        <button class="btn btn-primary" id="next-btn" onclick="nextStep()">下一步 (二分迭代)</button>
+    </div>
+</div>
+
+<script>
+    const nums1 = [1, 3];
+    const nums2 = [2, 4, 5, 6];
+    const m = nums1.length;
+    const n = nums2.length;
+    
+    let lo = 0, hi = m;
+    let finished = false;
+
+    function init() {
+        const a1 = document.getElementById('array1');
+        const a2 = document.getElementById('array2');
+        a1.innerHTML = ''; a2.innerHTML = '';
+        
+        nums1.forEach(v => { a1.innerHTML += `<div class="cell">${v}</div>`; });
+        nums2.forEach(v => { a2.innerHTML += `<div class="cell">${v}</div>`; });
+        updateCuts(0, Math.floor((m+n+1)/2));
+    }
+
+    function updateCuts(mid1, mid2) {
+        const cut1 = document.getElementById('cut1');
+        const cut2 = document.getElementById('cut2');
+        
+        // 计算位置：每个cell 50px + gap 6px
+        const pos1 = mid1 * 56;
+        const pos2 = mid2 * 56;
+        
+        cut1.style.left = (pos1 + 75) + 'px';
+        cut2.style.left = (pos2 + 75) + 'px';
+
+        // 更新背景色
+        updateCells('array1', mid1);
+        updateCells('array2', mid2);
+
+        // 获取L1, R1, L2, R2
+        const L1 = mid1 > 0 ? nums1[mid1-1] : -Infinity;
+        const R1 = mid1 < m ? nums1[mid1] : Infinity;
+        const L2 = mid2 > 0 ? nums2[mid2-1] : -Infinity;
+        const R2 = mid2 < n ? nums2[mid2] : Infinity;
+
+        document.getElementById('L1').innerText = L1 === -Infinity ? '-∞' : L1;
+        document.getElementById('R1').innerText = R1 === Infinity ? '+∞' : R1;
+        document.getElementById('L2').innerText = L2 === -Infinity ? '-∞' : L2;
+        document.getElementById('R2').innerText = R2 === Infinity ? '+∞' : R2;
+
+        const op1 = document.getElementById('OP1');
+        const op2 = document.getElementById('OP2');
+        
+        op1.className = 'comp-op ' + (L1 <= R2 ? 'comp-ok' : 'comp-fail');
+        op2.className = 'comp-op ' + (L2 <= R1 ? 'comp-ok' : 'comp-fail');
+
+        return {L1, R1, L2, R2};
+    }
+
+    function updateCells(id, mid) {
+        const cells = document.getElementById(id).children;
+        for(let i=0; i<cells.length; i++) {
+            cells[i].className = 'cell ' + (i < mid ? 'left-part' : 'right-part');
+        }
+    }
+
+    function nextStep() {
+        if (lo <= hi) {
+            let mid1 = Math.floor((lo + hi) / 2);
+            let mid2 = Math.floor((m + n + 1) / 2) - mid1;
+            
+            const {L1, R1, L2, R2} = updateCuts(mid1, mid2);
+            
+            if (L1 <= R2 && L2 <= R1) {
+                // 找到
+                let median;
+                if ((m+n) % 2 === 1) {
+                    median = Math.max(L1, L2);
+                } else {
+                    median = (Math.max(L1, L2) + Math.min(R1, R2)) / 2;
+                }
+                document.getElementById('log').innerHTML = `<b>成功！</b> 切分点左右平衡且数值有序。<br>中位数 = ${median}`;
+                document.getElementById('next-btn').disabled = true;
+                finished = true;
+            } else if (L1 > R2) {
+                document.getElementById('log').innerHTML = `L1 (${L1}) > R2 (${R2})，说明切分点1太靠右了，需要<b>向左移</b> (hi = mid1 - 1)。`;
+                hi = mid1 - 1;
+            } else {
+                document.getElementById('log').innerHTML = `L2 (${L2}) > R1 (${R1})，说明切分点1太靠左了，需要<b>向右移</b> (lo = mid1 + 1)。`;
+                lo = mid1 + 1;
+            }
+        }
+    }
+
+    function reset() {
+        lo = 0; hi = m; finished = false;
+        document.getElementById('next-btn').disabled = false;
+        document.getElementById('log').innerText = "已重置。重新开始二分寻找。";
+        init();
+    }
+
+    init();
+</script>
+</body>
+</html>
