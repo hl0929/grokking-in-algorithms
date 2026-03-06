@@ -1,2 +1,3 @@
 # grokking-in-algorithms
-Understand and visualize algorithms
+
+![](./assets/logo.png)
