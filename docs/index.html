@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+</head>
+<body>
+  <nav>
+    <a href="#/">Home</a>
+  </nav>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: '',
+      repo: '',
+      coverpage: true,
+      loadSidebar: true,
+
+      // docsify 插件 - 数学公式支持
+      plugins: [
+        function (hook, vm) {
+          hook.doneEach(function () {
+            // 等文档渲染完后初始化 MathJax
+            if (window.MathJax && MathJax.typesetPromise) {
+              MathJax.typesetPromise();
+            }
+          });
+        }
+      ]
+    }
+
+    // 配置 MathJax 的行为 - 数学公式支持
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <!-- Docsify v4 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  <!-- MathJax 3 - 数学公式支持 -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</body>
+</html>

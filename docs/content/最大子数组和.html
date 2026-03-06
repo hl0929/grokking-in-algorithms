@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>Kadane · 自适应演示</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #475569;
+            --accent-orange: #f59e0b;
+            --accent-green: #10b981;
+            --border-light: #e2e8f0;
+            --radius-card: 1.2rem;
+            --radius-cell: 0.6rem;
+        }
+
+        .card {
+            transform: scale(0.7); /* 调整为适合的比例 */
+            transform-origin: top center;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 0.8rem;
+        }
+
+        /* 容器：完全使用相对单位 + max-width，自适应任何屏幕 */
+        .card {
+            width: 100%;
+            max-width: 900px;          /* 大屏不会过宽，小屏自动收缩 */
+            background: var(--card-bg);
+            padding: clamp(1rem, 5vw, 2.2rem);  /* 动态内边距 */
+            border-radius: var(--radius-card);
+            box-shadow: 0 20px 30px -10px rgba(0,0,0,0.15);
+            transition: padding 0.2s;
+        }
+
+        h1 {
+            font-size: clamp(1.4rem, 6vw, 2.1rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.2rem 0;
+            color: var(--primary);
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: clamp(0.7rem, 3vw, 0.9rem);
+            margin-bottom: clamp(1rem, 4vw, 2rem);
+            border-bottom: 1px dashed var(--border-light);
+            padding-bottom: 0.6rem;
+        }
+
+        /* 数组区域 —— flex 自动换行 + 动态间隙 */
+        .array-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: clamp(0.2rem, 1.5vw, 0.6rem);
+            margin: 1rem 0 1.8rem 0;
+            padding: 0.4rem 0;
+        }
+
+        /* 每个数字单元的包装 */
+        .cell-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            min-width: 2.2rem;          /* 防止太小时数字折行 */
+        }
+
+        .cell {
+            width: clamp(2.2rem, 10vw, 4rem);      /* 小屏2.2rem，大屏4rem */
+            height: clamp(2.8rem, 12vw, 5rem);     /* 比例保持视觉舒服 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(0.9rem, 5vw, 1.5rem);
+            font-weight: 600;
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-cell);
+            background: white;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            line-height: 1;
+        }
+
+        /* 活跃单元格：当前扫描位置 */
+        .cell.active {
+            border-color: var(--primary);
+            background-color: #eef2ff;
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px -8px rgba(79, 70, 229, 0.4);
+        }
+
+        /* 当前子数组范围 (橙色高亮) */
+        .cell.in-range {
+            background-color: #fffbeb;
+            border-color: var(--accent-orange);
+        }
+
+        /* 最佳子数组下划线 (绿色) */
+        .best-line {
+            position: absolute;
+            bottom: -6px;
+            width: 80%;                /* 比单元格窄一点，更精致 */
+            height: 4px;
+            background: var(--accent-green);
+            border-radius: 4px;
+            display: none;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
+        }
+
+        /* 当前索引小标记 (i) */
+        .index-badge {
+            margin-top: 0.2rem;
+            font-size: clamp(0.55rem, 2.5vw, 0.7rem);
+            font-weight: 700;
+            color: var(--primary);
+            background: #f8fafc;
+            width: 1.2rem;
+            height: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid var(--border-light);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        /* 两列统计卡片：采用grid, 小屏自动堆叠 */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: clamp(0.6rem, 2.5vw, 1.2rem);
+            margin: 1.5rem 0 1.2rem 0;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 0.8rem 0.8rem;
+            border: 1px solid var(--border-light);
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .stat-value {
+            font-size: clamp(1.2rem, 8vw, 2.2rem);
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.2;
+        }
+
+        #cur-sum-val { color: var(--accent-orange); }
+        #max-sum-val { color: var(--accent-green); }
+
+        /* 决策说明框 —— 自动适应高度 */
+        .info-bubble {
+            background: #eff6ff;   /* 柔和蓝调 */
+            border-left: 5px solid var(--primary);
+            padding: 0.9rem 1rem;
+            border-radius: 0.8rem;
+            margin: 1.5rem 0 1.8rem 0;
+            font-size: clamp(0.8rem, 3vw, 0.95rem);
+            color: #1e293b;
+            box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.15);
+            word-break: break-word;
+        }
+
+        .info-bubble strong {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* 按钮控制区 完全弹性 */
+        .button-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem 1.5rem;
+            margin: 1.2rem 0 0.8rem 0;
+        }
+
+        .ctrl-btn {
+            background: none;
+            border: none;
+            padding: 0.4rem;
+            width: 2.8rem;
+            height: 2.8rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
+            transition: background 0.2s, color 0.2s, transform 0.1s;
+            background: #f1f5f9;
+        }
+
+        .ctrl-btn:hover {
+            background: #e2e8f0;
+            color: var(--primary);
+            transform: scale(1.02);
+        }
+
+        .ctrl-btn:active {
+            transform: scale(0.98);
+        }
+
+        .ctrl-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .play-btn {
+            background: var(--primary);
+            color: white;
+            width: 3.2rem;
+            height: 3.2rem;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+        }
+
+        .play-btn:hover {
+            background: var(--primary-hover);
+            color: white;
+        }
+
+        svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            fill: currentColor;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 5px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            margin-top: 1.2rem;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--primary);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        /* 小屏时调整best-line的位置 */
+        @media (max-width: 400px) {
+            .best-line {
+                bottom: -4px;
+                height: 3px;
+            }
+            .cell {
+                border-width: 1.5px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Kadane · 最大子数组</h1>
+    <div class="subtitle">自适应演示 · 逐步决策</div>
+
+    <!-- 数组容器 动态填充 -->
+    <div class="array-row" id="arrayContainer"></div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-panel">
+        <div class="stat-card">
+            <div class="stat-label">当前子数组 (cur)</div>
+            <div class="stat-value" id="curSumDisplay">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">全局最佳 (max)</div>
+            <div class="stat-value" id="maxSumDisplay">—</div>
+        </div>
+    </div>
+
+    <!-- 动态决策区域 -->
+    <div class="info-bubble" id="decisionMessage">
+        ⚡ 点击播放 ▶ 或 [下一步] 开始
+    </div>
+
+    <!-- 按钮组 -->
+    <div class="button-bar">
+        <button class="ctrl-btn" id="resetButton" title="重置">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <button class="ctrl-btn play-btn" id="playPauseButton" title="播放/暂停">
+            <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="ctrl-btn" id="nextButton" title="下一步">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- 固定数组 (经典用例) ----------
+        const nums = [-2, 1, -3, 4, -1, 2, 1, -5, 4];
+
+        // ---------- 预先计算所有中间状态 ----------
+        function buildAllStates(arr) {
+            const states = [];
+            let curSum = arr[0];
+            let maxSum = arr[0];
+            let start = 0, end = 0;          // 全局最佳范围
+            let tempStart = 0;                // 当前子数组起点
+
+            // 初始状态 (i=0)
+            states.push({
+                index: 0,
+                curSum: curSum,
+                maxSum: maxSum,
+                range: [0, 0],
+                bestRange: [0, 0],
+                decision: "🚀 初始化：第一个元素作为当前子数组，也是全局最大值。"
+            });
+
+            for (let i = 1; i < arr.length; i++) {
+                let decisionPart = "";
+                // Kadane 核心
+                if (curSum + arr[i] < arr[i]) {
+                    curSum = arr[i];
+                    tempStart = i;
+                    decisionPart = `丢弃旧和，<strong>从索引 ${i} 重新开始</strong> (因为 ${arr[i]} > ${curSum - arr[i]} + ${arr[i]})。`;
+                } else {
+                    curSum += arr[i];
+                    decisionPart = `继续延伸，累加 ${arr[i]} → 当前和 = ${curSum}`;
+                }
+
+                // 更新全局最大值
+                if (curSum > maxSum) {
+                    maxSum = curSum;
+                    start = tempStart;
+                    end = i;
+                    decisionPart += ` <span style="color:#10b981;font-weight:bold;">✨ 发现新最大值！</span>`;
+                }
+
+                states.push({
+                    index: i,
+                    curSum: curSum,
+                    maxSum: maxSum,
+                    range: [tempStart, i],
+                    bestRange: [start, end],
+                    decision: decisionPart
+                });
+            }
+            return states;
+        }
+
+        const algorithmStates = buildAllStates(nums);
+        let currentStep = -1;                // -1 表示重置状态
+        let isPlaying = false;
+        let timer = null;
+
+        // ---------- 渲染数组单元格 (静态结构) ----------
+        const container = document.getElementById('arrayContainer');
+        function buildCells() {
+            container.innerHTML = ''; 
+            nums.forEach((val, idx) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'cell-wrap';
+                wrap.innerHTML = `
+                    <div class="cell" id="cell-${idx}">${val}</div>
+                    <div class="index-badge" id="badge-${idx}">i</div>
+                    <div class="best-line" id="bestLine-${idx}"></div>
+                `;
+                container.appendChild(wrap);
+            });
+        }
+        buildCells();
+
+        // DOM 元素引用
+        const curSpan = document.getElementById('curSumDisplay');
+        const maxSpan = document.getElementById('maxSumDisplay');
+        const decisionDiv = document.getElementById('decisionMessage');
+        const progressFill = document.getElementById('progressFill');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const resetBtn = document.getElementById('resetButton');
+        const playBtn = document.getElementById('playPauseButton');
+        const nextBtn = document.getElementById('nextButton');
+
+        // ---------- 更新界面 (根据 currentStep) ----------
+        function refreshDisplay() {
+            // 先重置所有单元格样式
+            nums.forEach((_, idx) => {
+                const cell = document.getElementById(`cell-${idx}`);
+                const badge = document.getElementById(`badge-${idx}`);
+                const line = document.getElementById(`bestLine-${idx}`);
+                if (cell) cell.className = 'cell';
+                if (badge) badge.style.opacity = '0';
+                if (line) line.style.display = 'none';
+            });
+
+            // 重置状态（-1）
+            if (currentStep === -1) {
+                curSpan.innerText = '—';
+                maxSpan.innerText = '—';
+                decisionDiv.innerHTML = '⚡ 点击播放 ▶ 或 [下一步] 开始';
+                progressFill.style.width = '0%';
+                return;
+            }
+
+            const st = algorithmStates[currentStep];
+            // 1. 高亮当前扫描索引 & 范围 & 最优线
+            for (let i = 0; i < nums.length; i++) {
+                const cell = document.getElementById(`cell-${i}`);
+                const badge = document.getElementById(`badge-${i}`);
+                const bestLine = document.getElementById(`bestLine-${i}`);
+
+                // 当前扫描位置 active
+                if (i === st.index) {
+                    cell.classList.add('active');
+                    badge.style.opacity = '1';
+                }
+
+                // 当前子数组范围 in-range (橙色)
+                if (i >= st.range[0] && i <= st.range[1]) {
+                    cell.classList.add('in-range');
+                }
+
+                // 全局最佳子数组下划线 (绿色)
+                if (i >= st.bestRange[0] && i <= st.bestRange[1]) {
+                    bestLine.style.display = 'block';
+                }
+            }
+
+            // 2. 更新统计值
+            curSpan.innerText = st.curSum;
+            maxSpan.innerText = st.maxSum;
+            decisionDiv.innerHTML = `💡 ${st.decision}`;
+
+            // 3. 进度条
+            const progressPercent = ((currentStep + 1) / algorithmStates.length) * 100;
+            progressFill.style.width = progressPercent + '%';
+
+            // 如果到最后一步，自动暂停
+            if (currentStep === algorithmStates.length - 1) {
+                stopAutoPlay();
+            }
+        }
+
+        // ---------- 下一步 ----------
+        function goToNext() {
+            if (currentStep < algorithmStates.length - 1) {
+                currentStep++;
+                refreshDisplay();
+            }
+        }
+
+        // ---------- 自动播放控制 ----------
+        function startAutoPlay() {
+            if (isPlaying) return;
+            // 如果已经在最后一步，重置到-1再播放？更符合直觉：重置从0开始
+            if (currentStep >= algorithmStates.length - 1) {
+                currentStep = -1;
+                refreshDisplay();
+            }
+            isPlaying = true;
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = 'block';
+
+            timer = setInterval(() => {
+                if (currentStep < algorithmStates.length - 1) {
+                    goToNext();
+                } else {
+                    stopAutoPlay();  // 播放结束
+                }
+            }, 1000);
+        }
+
+        function stopAutoPlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            isPlaying = false;
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        }
+
+        // ---------- 重置 ----------
+        function resetToBeginning() {
+            stopAutoPlay();
+            currentStep = -1;
+            refreshDisplay();
+        }
+
+        // ---------- 事件绑定 ----------
+        nextBtn.addEventListener('click', () => {
+            stopAutoPlay();
+            if (currentStep === -1) {
+                // 首次点击下一步从第一个状态开始
+                currentStep = 0;
+            } else {
+                if (currentStep < algorithmStates.length - 1) {
+                    currentStep++;
+                }
+            }
+            refreshDisplay();
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                // 如果处于-1或者最后，先重置到0再播放(让播放更自然)
+                if (currentStep === -1 || currentStep === algorithmStates.length - 1) {
+                    currentStep = -1;   // 准备开始
+                    refreshDisplay();    // 显示初始空白
+                }
+                startAutoPlay();
+            }
+        });
+
+        resetBtn.addEventListener('click', resetToBeginning);
+
+        // 确保初始化显示（重置状态）
+        resetToBeginning();
+
+        // 窗口大小变化时，不做特殊处理，所有单位都是动态的。但best-line可能需要微调：已使用相对尺寸
+        // 附加: 万一重绘bug? 无。
+    })();
+</script>
+</body>
+</html>
