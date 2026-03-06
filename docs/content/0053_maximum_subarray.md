@@ -1,8 +1,27 @@
+
+[53. Maximum Subarray](https://leetcode.com/problems/maximum-subarray/)
+
+[0053-maximum-subarray](./html/0053_maximum_subarray.html ':include :type=iframe')
+
+
+```python
+def max_subarray(nums):
+    cur_sum = max_sum = nums[0]
+    for num in nums[1:]:
+        cur_sum = max(cur_sum + num, num)
+        max_sum = max(max_sum, cur_sum)
+    return max_sum
+
+
+nums = [-2, 1, -3, 4, -1, 2, 1, -5, 4]
+result = max_subarray(nums)
+print(result)
+```
+
+
 Kadane 算法（Kadane's Algorithm）是计算机科学中解决**最大子数组和（Maximum Subarray Sum）**问题最优雅、最高效的算法。
 
 它的核心逻辑和思想可以总结为：**局部最优推导全局最优的“贪心”策略**。
-
-[描述文本](最大子数组和.html ':include :type=iframe')
 
 ---
 

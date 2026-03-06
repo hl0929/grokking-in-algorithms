@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quickselect 快速选择算法演示</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f8fafc;
+            --left-color: #f87171;  /* 红色 - 大于 pivot */
+            --mid-color: #fbbf24;   /* 黄色 - 等于 pivot */
+            --right-color: #60a5fa; /* 蓝色 - 小于 pivot */
+            --text-main: #1e293b;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 0.5rem; }
+        .desc { text-align: center; color: #64748b; margin-bottom: 2rem; }
+
+        /* 数组展示 */
+        .array-view {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            min-height: 120px;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 2px dashed #e2e8f0;
+            border-radius: 0.5rem;
+        }
+
+        .num-box {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .num-box.pivot { border-color: black; box-shadow: 0 0 15px rgba(0,0,0,0.3); transform: translateY(-15px); background: white; }
+        .num-box.left { background-color: var(--left-color); color: white; border-color: #dc2626; }
+        .num-box.mid { background-color: var(--mid-color); color: white; border-color: #d97706; }
+        .num-box.right { background-color: var(--right-color); color: white; border-color: #2563eb; }
+        .num-box.fade { opacity: 0.15; transform: scale(0.85); filter: grayscale(1); }
+
+        /* 控制面板 */
+        .controls { display: flex; justify-content: center; align-items: center; gap: 1.5rem; margin-top: 2rem; }
+        
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+        }
+
+        button:hover { background: #f1f5f9; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .play-btn {
+            width: 3.5rem;
+            height: 3.5rem;
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
+        }
+
+        .play-btn:hover { background: var(--primary-hover); color: white; }
+
+        svg { width: 28px; height: 28px; fill: currentColor; }
+
+        .info-panel {
+            background: #f1f5f9;
+            padding: 1.2rem;
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            border-left: 4px solid var(--primary);
+            min-height: 80px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 1.5rem;
+            font-size: 0.8rem;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 14px; height: 14px; border-radius: 3px; }
+
+        .progress-bar-bg {
+            margin-top: 2rem;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            width: 100%;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Quickselect 可视化演示</h1>
+    <div class="desc" id="main-desc">正在寻找第 K 大的元素 (K = 2)</div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:var(--left-color)"></div> 大于 Pivot (Left)</div>
+        <div class="legend-item"><div class="dot" style="background:var(--mid-color)"></div> 等于 Pivot (Mid)</div>
+        <div class="legend-item"><div class="dot" style="background:var(--right-color)"></div> 小于 Pivot (Right)</div>
+    </div>
+
+    <div class="array-view" id="array-container"></div>
+
+    <div class="info-panel" id="log">
+        准备就绪。点击播放按钮开始自动执行算法步骤。
+    </div>
+
+    <div class="controls">
+        <button id="reset-btn" title="重置">
+            <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+        <button id="play-btn" class="play-btn" title="播放/暂停">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button id="next-btn" title="下一步">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+    </div>
+
+    <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+</div>
+
+<script>
+    const originalNums = [1, 2, 4, 3, 5];
+    let nums = [...originalNums];
+    let k = 2;
+    let stepCount = 0;
+    let state = 'START'; // START, CHOOSE_PIVOT, PARTITION, DECIDE, FINISHED
+    let pivot = null;
+    let left = [], mid = [], right = [];
+    let isPlaying = false;
+    let timer = null;
+
+    const container = document.getElementById('array-container');
+    const log = document.getElementById('log');
+    const playBtn = document.getElementById('play-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const playIcon = document.getElementById('play-icon');
+    const pauseIcon = document.getElementById('pause-icon');
+    const mainDesc = document.getElementById('main-desc');
+    const progressFill = document.getElementById('progress-fill');
+
+    function render() {
+        container.innerHTML = '';
+        originalNums.forEach((val) => {
+            const box = document.createElement('div');
+            box.className = 'num-box';
+            box.innerText = val;
+            
+            if (nums.includes(val)) {
+                if (state === 'CHOOSE_PIVOT' && val === pivot) box.classList.add('pivot');
+                if (state === 'PARTITION' || state === 'DECIDE') {
+                    if (val > pivot) box.classList.add('left');
+                    else if (val === pivot) box.classList.add('mid');
+                    else box.classList.add('right');
+                }
+            } else {
+                box.classList.add('fade');
+            }
+            container.appendChild(box);
+        });
+    }
+
+    function runNext() {
+        if (state === 'FINISHED') return;
+
+        if (state === 'START' || state === 'DECIDE') {
+            if (nums.length === 0) return;
+            pivot = nums[Math.floor(Math.random() * nums.length)];
+            state = 'CHOOSE_PIVOT';
+            log.innerHTML = `<b>步骤 ${++stepCount}:</b> 随机选择基准值 (Pivot) 为 <b>${pivot}</b>`;
+        } 
+        else if (state === 'CHOOSE_PIVOT') {
+            left = nums.filter(x => x > pivot);
+            mid = nums.filter(x => x === pivot);
+            right = nums.filter(x => x < pivot);
+            state = 'PARTITION';
+            log.innerHTML = `<b>分区完成:</b> <br>
+                Left (大于${pivot}): [${left}] (长度:${left.length})<br>
+                Mid (等于${pivot}): [${mid}] (长度:${mid.length})<br>
+                Right (小于${pivot}): [${right}]`;
+        }
+        else if (state === 'PARTITION') {
+            if (left.length >= k) {
+                log.innerHTML = `因为 <b>k(${k}) &le; Left长度(${left.length})</b>，目标一定在 <b>Left</b> 部分。<br>继续在 [${left}] 中寻找第 ${k} 大。`;
+                nums = [...left];
+                state = 'DECIDE';
+            } else if (left.length + mid.length >= k) {
+                log.innerHTML = `因为 <b>Left长度 + Mid长度 &ge; k</b>，第K大刚好就是 <b>Pivot (${pivot})</b>！`;
+                state = 'FINISHED';
+                mainDesc.innerHTML = `🎉 找到结果：<span style="color:var(--primary)">${pivot}</span>`;
+                stopAutoPlay();
+                nextBtn.disabled = true;
+                progressFill.style.width = '100%';
+            } else {
+                const skipCount = left.length + mid.length;
+                const newK = k - skipCount;
+                log.innerHTML = `目标在 <b>Right</b> 部分。排除 Left 和 Mid 后，<br>目标变为在 [${right}] 中寻找第 <b>${newK}</b> 大。`;
+                k = newK;
+                nums = [...right];
+                state = 'DECIDE';
+            }
+            // 简单进度反馈
+            if (state !== 'FINISHED') {
+                const currentProgress = Math.min(95, (stepCount * 20));
+                progressFill.style.width = `${currentProgress}%`;
+            }
+        }
+        render();
+    }
+
+    function startAutoPlay() {
+        if (state === 'FINISHED') reset();
+        isPlaying = true;
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'block';
+        timer = setInterval(runNext, 1200);
+    }
+
+    function stopAutoPlay() {
+        isPlaying = false;
+        playIcon.style.display = 'block';
+        pauseIcon.style.display = 'none';
+        clearInterval(timer);
+    }
+
+    function reset() {
+        stopAutoPlay();
+        nums = [...originalNums];
+        k = 2;
+        stepCount = 0;
+        state = 'START';
+        pivot = null;
+        mainDesc.innerText = "正在寻找第 K 大的元素 (K = 2)";
+        nextBtn.disabled = false;
+        log.innerText = "已重置。点击播放按钮开始。";
+        progressFill.style.width = '0%';
+        render();
+    }
+
+    playBtn.addEventListener('click', () => {
+        if (isPlaying) stopAutoPlay();
+        else startAutoPlay();
+    });
+
+    nextBtn.addEventListener('click', () => {
+        stopAutoPlay();
+        runNext();
+    });
+
+    resetBtn.addEventListener('click', reset);
+
+    // 初始渲染
+    render();
+</script>
+</body>
+</html>
