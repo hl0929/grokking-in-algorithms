@@ -27,7 +27,8 @@ result = find_kth_largest(nums, k)
 print(result)
 ```
 
-这个算法被称为 **快速选择算法 (Quickselect)**。它是由快速排序（Quicksort）的作者 Tony Hoare 发明的，专门用于解决“从无序数组中寻找第 $K$ 个最大（或最小）元素”这一经典问题。
+这道题目（LeetCode 215. 数组中的第 K 个最大元素）所使用的算法被称为 快速选择算法（Quick Select）。它是快速排序（Quick Sort）的一个变种，核心思想是 “分治法（Divide and Conquer）” 和 “减而治之（Decrease and Conquer）”。
+
 
 ### 一、 核心思想：二分剪枝 (Binary Pruning)
 

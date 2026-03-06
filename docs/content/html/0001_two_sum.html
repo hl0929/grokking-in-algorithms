@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>两数之和：哈希表法可视化</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 0.5rem; }
+        .config-info { text-align: center; color: #64748b; margin-bottom: 2rem; font-weight: 500; }
+        .target-val { color: var(--primary); font-weight: bold; }
+
+        /* 数组视图 */
+        .section-title { font-size: 0.875rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+        .array-display { display: flex; justify-content: center; gap: 15px; margin-bottom: 3rem; }
+        .num-card {
+            width: 60px;
+            height: 80px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .num-card.active { border-color: var(--primary); background: #eef2ff; transform: translateY(-10px); box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2); }
+        .num-card.found { border-color: var(--success); background: #ecfdf5; }
+        .num-val { font-size: 1.5rem; font-weight: bold; color: #334155; }
+        .num-idx { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+
+        /* 哈希表视图 */
+        .hashmap-container {
+            background: #f1f5f9;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            min-height: 100px;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-content: flex-start;
+        }
+        .hash-item {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: popIn 0.3s ease-out;
+        }
+        .hash-item.highlight { background: var(--success); color: white; border-color: #059669; }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* 状态与控制 */
+        .status-box {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 1.25rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            min-height: 50px;
+            border-left: 4px solid var(--primary);
+        }
+        .controls { display: flex; justify-content: center; gap: 1rem; }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-next { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4); }
+        .btn-next:hover { background: #4f46e5; }
+        .btn-next:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+        .btn-reset { background: white; border: 1px solid #e2e8f0; color: #64748b; }
+        .btn-reset:hover { background: #f8fafc; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>两数之和可视化</h1>
+    <div class="config-info">输入数组: [3, 2, 4] | 目标值: <span class="target-val">6</span></div>
+
+    <div class="section-title">数组 (nums)</div>
+    <div class="array-display" id="array-container"></div>
+
+    <div class="section-title">哈希表 (存储格式: [需要的补数 : 来自索引])</div>
+    <div class="hashmap-container" id="hashmap-display">
+        <!-- 初始提示 -->
+        <div id="empty-hint" style="color: #94a3b8; width: 100%; text-align: center; padding: 1rem; font-style: italic;">哈希表当前为空...</div>
+    </div>
+
+    <div class="status-box" id="status-text">
+        点击“下一步”开始算法模拟。
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-reset" onclick="reset()">重置</button>
+        <button class="btn btn-next" id="next-btn" onclick="nextStep()">下一步</button>
+    </div>
+</div>
+
+<script>
+    const nums = [3, 2, 4];
+    const target = 6;
+    let currentIdx = -1;
+    let hashmap = {}; // 存储格式: { 补数: 索引 }
+    let finished = false;
+
+    // 初始化数组视图
+    function init() {
+        const container = document.getElementById('array-container');
+        container.innerHTML = '';
+        nums.forEach((num, i) => {
+            container.innerHTML += `
+                <div class="num-card" id="card-${i}">
+                    <div class="num-val">${num}</div>
+                    <div class="num-idx">idx: ${i}</div>
+                </div>
+            `;
+        });
+    }
+
+    function updateStatus(msg) {
+        document.getElementById('status-text').innerHTML = msg;
+    }
+
+    function nextStep() {
+        if (finished) return;
+
+        currentIdx++;
+        if (currentIdx >= nums.length) {
+            updateStatus("遍历结束，未找到解。");
+            document.getElementById('next-btn').disabled = true;
+            return;
+        }
+
+        // 清除上一个状态
+        document.querySelectorAll('.num-card').forEach(c => c.classList.remove('active'));
+        
+        const currentNum = nums[currentIdx];
+        const card = document.getElementById(`card-${currentIdx}`);
+        card.classList.add('active');
+
+        // 核心逻辑判断
+        if (currentNum in hashmap) {
+            // 匹配成功
+            const prevIdx = hashmap[currentNum];
+            card.classList.add('found');
+            document.getElementById(`card-${prevIdx}`).classList.add('found');
+            
+            // 高亮哈希表项
+            document.getElementById(`hash-item-${currentNum}`).classList.add('highlight');
+
+            updateStatus(`<b>成功！</b> 当前数字 ${currentNum} 正好匹配哈希表中的记录。<br>结果索引为: [${prevIdx}, ${currentIdx}]`);
+            finished = true;
+            document.getElementById('next-btn').disabled = true;
+        } else {
+            // 匹配失败，计算补数并登记
+            const complement = target - currentNum;
+            const hint = document.getElementById('empty-hint');
+            if (hint) hint.remove();
+
+            hashmap[complement] = currentIdx;
+
+            const hashDisplay = document.getElementById('hashmap-display');
+            hashDisplay.innerHTML += `
+                <div class="hash-item" id="hash-item-${complement}">
+                    <strong>${complement}</strong>
+                    <span style="color: #94a3b8">→</span>
+                    <small>索引 ${currentIdx}</small>
+                </div>
+            `;
+
+            updateStatus(`当前数字是 ${currentNum}。查询哈希表未发现记录。<br>计算补数: ${target} - ${currentNum} = <b>${complement}</b>。将其存入哈希表。`);
+        }
+    }
+
+    function reset() {
+        currentIdx = -1;
+        hashmap = {};
+        finished = false;
+        document.getElementById('next-btn').disabled = false;
+        document.getElementById('hashmap-display').innerHTML = '<div id="empty-hint" style="color: #94a3b8; width: 100%; text-align: center; padding: 1rem; font-style: italic;">哈希表当前为空...</div>';
+        updateStatus("已重置。点击“下一步”开始。");
+        init();
+    }
+
+    init();
+</script>
+
+</body>
+</html>

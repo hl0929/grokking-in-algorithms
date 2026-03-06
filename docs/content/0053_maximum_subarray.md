@@ -19,9 +19,9 @@ print(result)
 ```
 
 
-Kadane 算法（Kadane's Algorithm）是计算机科学中解决**最大子数组和（Maximum Subarray Sum）**问题最优雅、最高效的算法。
+这道题目（LeetCode 53. 最大子数组和）所使用的算法被称为 Kadane 算法（Kadane's Algorithm）。它的核心思想是 “动态规划（Dynamic Programming）”，通过局部的最优选择推导出全局的最优结果。
 
-它的核心逻辑和思想可以总结为：**局部最优推导全局最优的“贪心”策略**。
+这个算法的逻辑可以总结为：“及时止损，断舍离”。
 
 ---
 
