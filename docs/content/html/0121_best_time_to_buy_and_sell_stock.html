@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票买卖算法动态示意图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bar-transition { transition: height 0.3s ease, background-color 0.3s ease; }
+        .pointer-transition { transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .highlight-min { ring: 4px; ring-color: #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="max-w-2xl w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <div class="bg-slate-900 p-6 text-white text-center">
+            <h1 class="text-xl font-bold">买卖股票的最佳时机 (动态演示)</h1>
+            <p class="text-slate-400 text-sm mt-1">一次遍历算法：寻找波谷，测量波峰</p>
+        </div>
+
+        <!-- Animation Canvas -->
+        <div class="p-8">
+            <div class="relative h-64 w-full flex items-end justify-between px-4 border-b-2 border-slate-100 mb-12" id="chart-container">
+                <!-- Bars will be injected here -->
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                    <p class="text-xs text-emerald-600 font-bold uppercase tracking-wider">历史最低价 (Min)</p>
+                    <p class="text-2xl font-mono font-black text-emerald-700" id="min-val">--</p>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                    <p class="text-xs text-blue-600 font-bold uppercase tracking-wider">当前差值 (Diff)</p>
+                    <p class="text-2xl font-mono font-black text-blue-700" id="current-diff">0</p>
+                </div>
+                <div class="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                    <p class="text-xs text-orange-600 font-bold uppercase tracking-wider">最大利润 (Max)</p>
+                    <p class="text-2xl font-mono font-black text-orange-700" id="max-profit">0</p>
+                </div>
+            </div>
+
+            <!-- Code Execution Step -->
+            <div class="bg-slate-800 rounded-xl p-4 text-slate-300 font-mono text-sm mb-6">
+                <p id="code-line-1" class="transition-colors">minPrice = min(minPrice, prices[i])</p>
+                <p id="code-line-2" class="transition-colors">maxProfit = max(maxProfit, prices[i] - minPrice)</p>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center justify-center gap-4">
+                <button onclick="reset()" class="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-full font-bold transition-all">重置</button>
+                <button onclick="nextStep()" id="next-btn" class="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold shadow-lg shadow-indigo-200 transition-all">下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const prices = [7, 1, 5, 3, 6, 4];
+        let currentIndex = -1;
+        let minPrice = Infinity;
+        let maxProfit = 0;
+
+        const container = document.getElementById('chart-container');
+        const minValEl = document.getElementById('min-val');
+        const diffEl = document.getElementById('current-diff');
+        const maxProfitEl = document.getElementById('max-profit');
+        const nextBtn = document.getElementById('next-btn');
+
+        // Create bars
+        prices.forEach((p, i) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex flex-col items-center flex-1 transition-all duration-500 opacity-60';
+            wrapper.id = `bar-wrapper-${i}`;
+            
+            const label = document.createElement('span');
+            label.className = 'text-xs font-bold text-slate-400 mb-2';
+            label.innerText = p;
+
+            const bar = document.createElement('div');
+            bar.className = 'w-8 bg-slate-200 rounded-t-lg bar-transition relative';
+            bar.style.height = `${p * 25}px`;
+            bar.id = `bar-${i}`;
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(bar);
+            container.appendChild(wrapper);
+        });
+
+        function reset() {
+            currentIndex = -1;
+            minPrice = Infinity;
+            maxProfit = 0;
+            minValEl.innerText = '--';
+            diffEl.innerText = '0';
+            maxProfitEl.innerText = '0';
+            nextBtn.disabled = false;
+            nextBtn.innerText = '下一步';
+            
+            prices.forEach((_, i) => {
+                const w = document.getElementById(`bar-wrapper-${i}`);
+                const b = document.getElementById(`bar-${i}`);
+                w.className = 'flex flex-col items-center flex-1 opacity-60';
+                b.className = 'w-8 bg-slate-200 rounded-t-lg bar-transition relative';
+            });
+            document.getElementById('code-line-1').classList.remove('text-emerald-400');
+            document.getElementById('code-line-2').classList.remove('text-blue-400');
+        }
+
+        function nextStep() {
+            if (currentIndex >= prices.length - 1) return;
+
+            currentIndex++;
+            const currentPrice = prices[currentIndex];
+
+            // Update UI - Highlight Current
+            prices.forEach((_, i) => {
+                const w = document.getElementById(`bar-wrapper-${i}`);
+                const b = document.getElementById(`bar-${i}`);
+                if (i === currentIndex) {
+                    w.classList.add('opacity-100', 'scale-110');
+                    w.classList.remove('opacity-60');
+                    b.classList.add('bg-indigo-500');
+                } else {
+                    w.classList.remove('scale-110');
+                    b.classList.remove('bg-indigo-500');
+                }
+            });
+
+            // Logic 1: Min Price
+            const line1 = document.getElementById('code-line-1');
+            const line2 = document.getElementById('code-line-2');
+
+            if (currentPrice < minPrice) {
+                minPrice = currentPrice;
+                minValEl.innerText = minPrice;
+                minValEl.parentElement.classList.add('scale-105');
+                setTimeout(() => minValEl.parentElement.classList.remove('scale-105'), 300);
+                
+                // Highlight new min
+                prices.forEach((_, i) => {
+                    const b = document.getElementById(`bar-${i}`);
+                    b.classList.remove('ring-4', 'ring-emerald-400');
+                });
+                document.getElementById(`bar-${currentIndex}`).classList.add('ring-4', 'ring-emerald-400');
+                line1.classList.add('text-emerald-400');
+                line2.classList.remove('text-blue-400');
+            } else {
+                line1.classList.remove('text-emerald-400');
+            }
+
+            // Logic 2: Max Profit
+            const currentDiff = currentPrice - minPrice;
+            diffEl.innerText = currentDiff;
+
+            if (currentDiff > maxProfit) {
+                maxProfit = currentDiff;
+                maxProfitEl.innerText = maxProfit;
+                maxProfitEl.parentElement.classList.add('scale-105');
+                setTimeout(() => maxProfitEl.parentElement.classList.remove('scale-105'), 300);
+                line2.classList.add('text-blue-400');
+            } else {
+                line2.classList.remove('text-blue-400');
+            }
+
+            if (currentIndex === prices.length - 1) {
+                nextBtn.innerText = '完成';
+                nextBtn.disabled = true;
+            }
+        }
+    </script>
+</body>
+</html>

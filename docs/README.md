@@ -13,6 +13,8 @@
 
 [0056. 合并区间](./content/0056_merge_intervals.md)
 
+[0121. 买卖股票的最佳时机](./content/0121_best_time_to_buy_and_sell_stock.md)
+
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
 
 [0406. 根据身高重建队列](./content/0406_queue_reconstruction_by_height.md)
