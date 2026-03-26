@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最长连续序列可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .num-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .is-head { border-color: #10b981; background-color: #ecfdf5; transform: translateY(-5px); }
+        .is-counting { background-color: #3b82f6; color: white; transform: scale(1.1); z-index: 20; }
+        .is-member { opacity: 0.5; border-style: dashed; }
+        .set-item { transition: all 0.3s ease; }
+        .set-active { background-color: #fef08a; border-color: #eab308; transform: scale(1.05); }
+        .set-hit { background-color: #3b82f6; border-color: #2563eb; color: white; }
+        
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f1f5f9;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="max-w-4xl w-full mx-auto p-4 flex flex-col items-center">
+        <!-- 主容器 -->
+        <div class="w-full bg-white rounded-3xl shadow-2xl p-6 md:p-8 border border-slate-200">
+            <header class="text-center mb-6">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">最长连续序列可视化 (Hash Set 版)</h1>
+                <div class="inline-block mt-2 px-3 py-1 bg-green-50 rounded-full text-[10px] font-mono text-green-600 uppercase tracking-widest font-bold">
+                    O(N) 线性查找 | 空间换时间
+                </div>
+            </header>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- 左侧：原始数组区域 -->
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <h2 class="text-[10px] font-bold text-slate-400 uppercase mb-4 text-center">原始数组 (Iteration)</h2>
+                    <div id="pool-container" class="flex flex-wrap justify-center gap-2 items-center min-h-[100px]">
+                        <!-- JS 渲染 -->
+                    </div>
+                </div>
+
+                <!-- 右侧：Hash Set 区域 -->
+                <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                    <h2 class="text-[10px] font-bold text-indigo-400 uppercase mb-4 text-center">哈希集合 (Hash Set)</h2>
+                    <div id="set-container" class="flex flex-wrap justify-center gap-2 items-center min-h-[100px]">
+                        <!-- JS 渲染 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 状态解释 -->
+            <div id="status-box" class="bg-slate-900 rounded-2xl p-5 mb-8 border border-slate-800 min-h-[80px] flex items-center justify-center text-center shadow-inner">
+                <p id="log-content" class="text-sm text-blue-300 font-mono leading-relaxed"></p>
+            </div>
+
+            <!-- 控制面板 -->
+            <div class="flex flex-col items-center gap-6">
+                <!-- 指针标识图例 -->
+                <div class="flex flex-wrap justify-center gap-4 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-green-500 rounded-sm"></span> 潜在起点</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-blue-500 rounded-sm"></span> 接龙成员</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-yellow-400 rounded-sm"></span> Set 查询中</div>
+                </div>
+
+                <!-- 控制按钮 -->
+                <div class="flex items-center gap-4">
+                    <button id="prev-btn" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold transition-all disabled:opacity-30">
+                        上一步
+                    </button>
+                    
+                    <button id="next-btn" class="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-indigo-100 active:scale-95">
+                        下一步
+                    </button>
+
+                    <button id="reset-btn" class="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="text-[10px] text-slate-400 font-bold uppercase">
+                    当前最大长度: <span id="max-len-display" class="text-indigo-600 text-sm ml-1">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nums = [100, 4, 200, 1, 3, 2];
+        const numSet = new Set(nums);
+        const sortedUnique = Array.from(numSet).sort((a,b) => a-b);
+        let history = [];
+        let currentStepIndex = 0;
+
+        function generateSteps() {
+            let steps = [];
+            let maxLen = 0;
+            
+            // 步骤 0: 初始状态
+            steps.push({
+                pool: nums.map(n => ({val: n, status: 'idle'})),
+                set: sortedUnique.map(n => ({val: n, status: 'hidden'})),
+                maxLen: 0,
+                msg: "第一步：将数组存入 Hash Set 以实现 O(1) 查询。"
+            });
+
+            // 步骤 1: 展示 Set 完成
+            steps.push({
+                pool: nums.map(n => ({val: n, status: 'idle'})),
+                set: sortedUnique.map(n => ({val: n, status: 'idle'})),
+                maxLen: 0,
+                msg: "Hash Set 构建完毕。现在开始遍历数组寻找起点。"
+            });
+
+            for (let num of nums) {
+                // 检查起点
+                let checkingPrev = num - 1;
+                steps.push({
+                    pool: nums.map(n => ({val: n, status: n === num ? 'head' : 'idle'})),
+                    set: sortedUnique.map(n => ({val: n, status: n === checkingPrev ? 'query' : 'idle'})),
+                    maxLen,
+                    msg: `检查 ${num} 是否为起点：正在 Set 中查询 ${checkingPrev} 是否存在...`
+                });
+
+                if (!numSet.has(num - 1)) {
+                    // 是起点
+                    let currentLen = 1;
+                    let sequence = [num];
+                    
+                    steps.push({
+                        pool: nums.map(n => ({val: n, status: n === num ? 'head' : 'idle'})),
+                        set: sortedUnique.map(n => ({val: n, status: n === num ? 'hit' : 'idle'})),
+                        maxLen,
+                        msg: `Set 中没有 ${checkingPrev}！确认 ${num} 是这条“数字龙”的起点。`
+                    });
+
+                    while (numSet.has(num + 1)) {
+                        let target = num + 1;
+                        steps.push({
+                            pool: nums.map(n => ({val: n, status: sequence.includes(n) ? 'counting' : 'idle'})),
+                            set: sortedUnique.map(n => ({val: n, status: n === target ? 'query' : (sequence.includes(n) ? 'hit' : 'idle')})),
+                            maxLen,
+                            msg: `在 Set 中查询下一个数字 ${target}...`
+                        });
+
+                        num += 1;
+                        currentLen += 1;
+                        sequence.push(num);
+                        
+                        steps.push({
+                            pool: nums.map(n => ({val: n, status: sequence.includes(n) ? 'counting' : 'idle'})),
+                            set: sortedUnique.map(n => ({val: n, status: sequence.includes(n) ? 'hit' : 'idle'})),
+                            maxLen,
+                            msg: `找到 ${num}！当前连续长度变为 ${currentLen}。`
+                        });
+                    }
+                    
+                    maxLen = Math.max(maxLen, currentLen);
+                    steps.push({
+                        pool: nums.map(n => ({val: n, status: sequence.includes(n) ? 'counting' : 'idle'})),
+                        set: sortedUnique.map(n => ({val: n, status: 'idle'})),
+                        maxLen,
+                        msg: `这条龙数完了，最终长度 ${currentLen}。更新最大长度记录。`
+                    });
+                } else {
+                    steps.push({
+                        pool: nums.map(n => ({val: n, status: n === num ? 'member' : 'idle'})),
+                        set: sortedUnique.map(n => ({val: n, status: n === (num-1) ? 'hit' : 'idle'})),
+                        maxLen,
+                        msg: `Set 中存在 ${num-1}，说明 ${num} 只是龙身，跳过以节省时间。`
+                    });
+                }
+            }
+
+            steps.push({
+                pool: nums.map(n => ({val: n, status: 'idle'})),
+                set: sortedUnique.map(n => ({val: n, status: 'idle'})),
+                maxLen,
+                msg: `遍历结束。最长连续序列的长度为 ${maxLen}。`
+            });
+
+            return steps;
+        }
+
+        function renderStep(step) {
+            const poolContainer = document.getElementById('pool-container');
+            const setContainer = document.getElementById('set-container');
+            const logContent = document.getElementById('log-content');
+            const maxLenDisplay = document.getElementById('max-len-display');
+
+            // 渲染数组
+            poolContainer.innerHTML = '';
+            step.pool.forEach(item => {
+                const card = document.createElement('div');
+                let cls = 'bg-white text-slate-700 border-slate-200';
+                if (item.status === 'head') cls = 'is-head border-green-500 ring-2 ring-green-200';
+                if (item.status === 'counting') cls = 'is-counting bg-blue-500 text-white';
+                if (item.status === 'member') cls = 'opacity-30 border-dashed';
+                
+                card.className = `num-card w-10 h-10 rounded-lg flex items-center justify-center text-xs border shadow-sm ${cls}`;
+                card.innerText = item.val;
+                poolContainer.appendChild(card);
+            });
+
+            // 渲染 Set
+            setContainer.innerHTML = '';
+            step.set.forEach(item => {
+                const card = document.createElement('div');
+                let cls = 'bg-white border-indigo-100 text-indigo-300';
+                if (item.status === 'hidden') cls = 'opacity-0 scale-50';
+                if (item.status === 'idle') cls = 'border-indigo-200 text-indigo-700 bg-white';
+                if (item.status === 'query') cls = 'set-active bg-yellow-400 border-yellow-600 text-yellow-900 font-bold';
+                if (item.status === 'hit') cls = 'set-hit shadow-md';
+
+                card.className = `set-item w-10 h-10 rounded-full flex items-center justify-center text-xs border-2 shadow-sm ${cls}`;
+                card.innerText = item.val;
+                setContainer.appendChild(card);
+            });
+
+            logContent.innerText = `> ${step.msg}`;
+            maxLenDisplay.innerText = step.maxLen;
+            
+            document.getElementById('prev-btn').disabled = currentStepIndex === 0;
+            document.getElementById('next-btn').disabled = currentStepIndex === history.length - 1;
+        }
+
+        function init() {
+            history = generateSteps();
+            currentStepIndex = 0;
+            renderStep(history[currentStepIndex]);
+        }
+
+        document.getElementById('next-btn').onclick = () => {
+            if (currentStepIndex < history.length - 1) {
+                currentStepIndex++;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('reset-btn').onclick = init;
+        window.onload = init;
+    </script>
+</body>
+</html>

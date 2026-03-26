@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valid Anagram Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bucket-anim { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .char-active { transform: translateY(-5px); color: #3b82f6; font-weight: bold; }
+        .highlight-plus { background-color: #d1fae5; border-color: #10b981; }
+        .highlight-minus { background-color: #fee2e2; border-color: #ef4444; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* 自定义横向滚动条样式 */
+        .hide-scrollbar::-webkit-scrollbar {
+            height: 6px;
+        }
+        .hide-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .hide-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-2 m-0 font-sans">
+
+    <div class="flex flex-col w-full max-w-2xl mx-auto bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden mb-4">
+        
+        <!-- 头部控制 -->
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-2 justify-between items-center shrink-0">
+            <div class="flex gap-2">
+                <div class="flex flex-col">
+                    <label class="text-[8px] text-gray-400 uppercase">String S</label>
+                    <input type="text" id="input-s" value="anagram" class="w-24 px-1.5 py-0.5 text-xs border rounded outline-none focus:border-blue-400" />
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-[8px] text-gray-400 uppercase">String T</label>
+                    <input type="text" id="input-t" value="nagaram" class="w-24 px-1.5 py-0.5 text-xs border rounded outline-none focus:border-blue-400" />
+                </div>
+            </div>
+            <div class="flex gap-1 pt-2">
+                <button id="btn-init" class="bg-slate-600 text-white text-[10px] px-2 py-1 rounded hover:bg-slate-700">重置</button>
+                <button id="btn-next" class="bg-blue-600 text-white text-[10px] px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-30" disabled>下一步</button>
+            </div>
+        </div>
+
+        <!-- 字符串展示区 -->
+        <div class="p-4 space-y-4">
+            <div class="flex items-center gap-4">
+                <span class="text-[10px] font-bold text-gray-400 w-4">S:</span>
+                <div id="str-s-container" class="flex gap-1"></div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-[10px] font-bold text-gray-400 w-4">T:</span>
+                <div id="str-t-container" class="flex gap-1"></div>
+            </div>
+
+            <!-- 26字母计数桶 (修改为横向滚动布局) -->
+            <div class="pt-4 border-t border-gray-100 overflow-hidden">
+                <p class="text-[8px] text-gray-400 uppercase mb-3 text-center tracking-widest">Frequency Counter (Array of 26)</p>
+                <div class="overflow-x-auto hide-scrollbar pb-2">
+                    <div id="buckets-container" class="flex gap-1 min-w-max px-2">
+                        <!-- JS 注入 26 个字母桶 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果状态 -->
+        <div class="px-4 py-2 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+            <div id="status-text" class="text-xs font-bold text-gray-400 uppercase">Waiting...</div>
+            <div id="step-info" class="text-[9px] text-gray-400 font-mono italic">Step: 0</div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="bg-slate-900 p-2 font-mono text-[10px] text-slate-400 h-24 overflow-y-auto" id="logs">
+            <div>> 请输入两个字符串并点击重置。</div>
+        </div>
+    </div>
+
+<script>
+    let sStr = "", tStr = "";
+    let counts = new Array(26).fill(0);
+    let currentStep = 0; 
+    let phase = "INIT"; 
+    let sIdx = 0, tIdx = 0, checkIdx = 0;
+
+    function init() {
+        sStr = document.getElementById('input-s').value.toLowerCase().replace(/[^a-z]/g, '');
+        tStr = document.getElementById('input-t').value.toLowerCase().replace(/[^a-z]/g, '');
+        
+        counts.fill(0);
+        currentStep = 0;
+        sIdx = 0; tIdx = 0; checkIdx = 0;
+        phase = "S_PHASE";
+        
+        renderStrings();
+        renderBuckets();
+        
+        document.getElementById('logs').innerHTML = `<div>> 开始处理字符串 S: "${sStr}" (执行 +1)</div>`;
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('status-text').innerText = "Processing S...";
+        document.getElementById('status-text').className = "text-xs font-bold text-blue-500 uppercase";
+        
+        if (sStr.length !== tStr.length) {
+            log("长度不一致！直接判定为 False。", "text-red-400");
+            phase = "END";
+            document.getElementById('status-text').innerText = "FALSE: LENGTH MISMATCH";
+            document.getElementById('status-text').className = "text-xs font-bold text-red-600 uppercase";
+            document.getElementById('btn-next').disabled = true;
+        }
+    }
+
+    function renderStrings() {
+        const sc = document.getElementById('str-s-container');
+        const tc = document.getElementById('str-t-container');
+        sc.innerHTML = sStr.split('').map((c, i) => `<span id="s-char-${i}" class="w-6 h-8 flex-shrink-0 flex items-center justify-center border border-gray-200 rounded text-xs font-mono bg-white">${c}</span>`).join('');
+        tc.innerHTML = tStr.split('').map((c, i) => `<span id="t-char-${i}" class="w-6 h-8 flex-shrink-0 flex items-center justify-center border border-gray-200 rounded text-xs font-mono bg-white">${c}</span>`).join('');
+    }
+
+    function renderBuckets() {
+        const bc = document.getElementById('buckets-container');
+        bc.innerHTML = Array.from({length: 26}, (_, i) => {
+            const char = String.fromCharCode(97 + i);
+            return `
+                <div id="bucket-${i}" class="flex flex-col items-center bucket-anim p-2 border border-gray-100 rounded bg-white w-10 min-w-[40px] shadow-sm">
+                    <span class="text-[12px] font-mono text-gray-700" id="val-${i}">0</span>
+                    <span class="text-[9px] text-gray-300 uppercase">${char}</span>
+                    <span class="text-[7px] text-gray-200 font-mono">[${i}]</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function nextStep() {
+        if (phase === "S_PHASE") {
+            processS();
+        } else if (phase === "T_PHASE") {
+            processT();
+        } else if (phase === "CHECK") {
+            processCheck();
+        }
+    }
+
+    function processS() {
+        if (sIdx < sStr.length) {
+            const char = sStr[sIdx];
+            const code = char.charCodeAt(0) - 97;
+            counts[code]++;
+            
+            highlightChar('s', sIdx, true);
+            updateBucket(code, counts[code], 'plus');
+            log(`S[${sIdx}]: '${char}' -> 桶[${char}] +1 = ${counts[code]}`);
+            
+            sIdx++;
+            if (sIdx === sStr.length) {
+                phase = "T_PHASE";
+                log("--- S 处理完毕，开始处理 T (执行 -1) ---", "text-blue-300");
+            }
+        }
+        updateStepInfo();
+    }
+
+    function processT() {
+        if (tIdx < tStr.length) {
+            const char = tStr[tIdx];
+            const code = char.charCodeAt(0) - 97;
+            counts[code]--;
+            
+            highlightChar('t', tIdx, true);
+            updateBucket(code, counts[code], 'minus');
+            log(`T[${tIdx}]: '${char}' -> 桶[${char}] -1 = ${counts[code]}`);
+            
+            tIdx++;
+            if (tIdx === tStr.length) {
+                phase = "CHECK";
+                log("--- T 处理完毕，开始最终检查 ---", "text-blue-300");
+                document.getElementById('status-text').innerText = "Checking Result...";
+            }
+        }
+        updateStepInfo();
+    }
+
+    function processCheck() {
+        let foundError = false;
+        log(`检查所有计数器是否为 0...`);
+        
+        counts.forEach((val, i) => {
+            const bucket = document.getElementById(`bucket-${i}`);
+            if (val !== 0) {
+                bucket.classList.add('bg-red-100', 'border-red-400');
+                foundError = true;
+            } else {
+                bucket.classList.add('bg-green-50', 'border-green-200');
+            }
+        });
+
+        if (foundError) {
+            log("失败：发现计数器不为 0。", "text-red-400");
+            document.getElementById('status-text').innerText = "FALSE: NOT AN ANAGRAM";
+            document.getElementById('status-text').className = "text-xs font-bold text-red-600 uppercase";
+        } else {
+            log("成功：所有计数器均为 0！", "text-green-400");
+            document.getElementById('status-text').innerText = "TRUE: IS AN ANAGRAM 🎉";
+            document.getElementById('status-text').className = "text-xs font-bold text-green-600 uppercase";
+        }
+        
+        phase = "END";
+        document.getElementById('btn-next').disabled = true;
+        updateStepInfo();
+    }
+
+    function highlightChar(type, idx, active) {
+        document.querySelectorAll(`#str-${type}-container span`).forEach(el => el.className = "w-6 h-8 flex-shrink-0 flex items-center justify-center border border-gray-200 rounded text-xs font-mono bg-white");
+        const el = document.getElementById(`${type}-char-${idx}`);
+        if(el) el.className = "w-6 h-8 flex-shrink-0 flex items-center justify-center border-2 border-blue-500 rounded text-xs font-bold font-mono bg-blue-50 text-blue-700 shadow-sm";
+    }
+
+    function updateBucket(code, val, type) {
+        const b = document.getElementById(`bucket-${code}`);
+        const v = document.getElementById(`val-${code}`);
+        
+        document.querySelectorAll('#buckets-container div').forEach(el => {
+            el.classList.remove('highlight-plus', 'highlight-minus', 'scale-110', 'border-blue-400');
+        });
+        
+        v.innerText = val;
+        b.classList.add(type === 'plus' ? 'highlight-plus' : 'highlight-minus', 'scale-110', 'border-blue-400');
+        
+        // 自动滚动到当前操作的桶
+        b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+        if (val === 0) v.className = "text-[12px] font-mono text-gray-400";
+        else v.className = "text-[12px] font-mono text-slate-900 font-bold";
+    }
+
+    function log(msg, colorClass = "") {
+        const l = document.getElementById('logs');
+        const d = document.createElement('div');
+        d.className = colorClass;
+        d.innerText = `> ${msg}`;
+        l.appendChild(d);
+        l.scrollTop = l.scrollHeight;
+    }
+
+    function updateStepInfo() {
+        currentStep++;
+        document.getElementById('step-info').innerText = `Step: ${currentStep}`;
+    }
+
+    document.getElementById('btn-init').onclick = init;
+    document.getElementById('btn-next').onclick = nextStep;
+
+    init();
+</script>
+</body>
+</html>

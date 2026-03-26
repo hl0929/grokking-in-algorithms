@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Max Area Compact Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 美化滚动条 */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* 动画过渡 */
+        .bar-anim { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* 水位层 */
+        .water-layer {
+            position: absolute; bottom: 0;
+            background: linear-gradient(to top, rgba(59,130,246,0.1), rgba(59,130,246,0.4));
+            border-top: 2px dashed #3b82f6;
+            transition: all 0.4s ease; z-index: 5;
+        }
+        
+        /* 指针标签 */
+        .pointer-tag {
+            position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+            font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px;
+            opacity: 0; transition: all 0.3s ease; white-space: nowrap;
+        }
+        
+        /* 激活状态样式 */
+        .active-l { background-color: #10b981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.3); }
+        .active-l .tag-l { opacity: 1; top: -26px; }
+        
+        .active-r { background-color: #ef4444 !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+        .active-r .tag-r { opacity: 1; top: -26px; }
+    </style>
+</head>
+<body class="bg-gray-50 p-2 m-0 font-sans">
+
+    <!-- 主容器：移除 overflow-hidden 以支持页面滚动，设置最大宽度居中 -->
+    <div class="flex flex-col w-full max-w-2xl mx-auto bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden mb-4">
+        
+        <!-- 头部状态栏 -->
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Container With Most Water</span>
+            <div class="flex gap-3">
+                <div class="flex items-center gap-1">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    <span class="text-[9px] text-gray-400">Left (L)</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                    <span class="text-[9px] text-gray-400">Right (R)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 可视化核心区 -->
+        <div class="p-3 space-y-4">
+            <!-- 图表展示区：固定高度 -->
+            <div class="relative h-32 flex items-end justify-around px-4 mt-8 border-b border-gray-100">
+                <!-- 动态水位遮罩 -->
+                <div id="water" class="water-layer opacity-0"></div>
+                
+                <!-- 柱状图容器 -->
+                <div id="bars" class="flex items-end justify-around w-full h-full z-10">
+                    <!-- JS 动态注入 -->
+                </div>
+            </div>
+
+            <!-- 数据统计面板 -->
+            <div class="grid grid-cols-4 gap-2">
+                <div class="bg-white p-1.5 rounded text-center border border-gray-100 shadow-sm">
+                    <p class="text-[8px] text-gray-400 uppercase">Width</p>
+                    <p id="stat-w" class="text-sm font-mono font-bold text-gray-700">-</p>
+                </div>
+                <div class="bg-white p-1.5 rounded text-center border border-gray-100 shadow-sm">
+                    <p class="text-[8px] text-gray-400 uppercase">Min H</p>
+                    <p id="stat-h" class="text-sm font-mono font-bold text-gray-700">-</p>
+                </div>
+                <div class="bg-blue-50 p-1.5 rounded text-center border border-blue-100">
+                    <p class="text-[8px] text-blue-500 font-bold uppercase">Area</p>
+                    <p id="stat-area" class="text-sm font-mono font-bold text-blue-600">-</p>
+                </div>
+                <div class="bg-amber-50 p-1.5 rounded text-center border border-amber-100">
+                    <p class="text-[8px] text-amber-600 font-bold uppercase">Max Area</p>
+                    <p id="stat-max" class="text-sm font-mono font-bold text-amber-700">0</p>
+                </div>
+            </div>
+
+            <!-- 运行日志：内部自带滚动 -->
+            <div class="bg-slate-900 rounded-md p-2 font-mono text-[10px] text-slate-400 shadow-inner">
+                <div id="logs" class="space-y-1 h-20 overflow-y-auto leading-relaxed">
+                    <div class="text-slate-500">> 点击下方按钮开始双指针扫描...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制按钮栏 -->
+        <div class="p-2 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
+            <button id="prev" class="flex-1 py-2 text-[10px] font-bold bg-white border border-gray-200 text-gray-500 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-30">上一步</button>
+            <button id="next" class="flex-[2] py-2 text-[10px] font-bold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 transition-all active:scale-95">执行单步</button>
+            <button id="reset" class="px-3 py-2 text-gray-400 hover:text-gray-600 transition-colors border border-transparent">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 补充说明文字（用于测试页面滑动） -->
+    <div class="max-w-2xl mx-auto px-1 text-[10px] text-gray-400 leading-relaxed">
+        <p class="mb-2">算法提示：双指针法利用了贪心思想。由于容器高度受限于短板，移动长板宽度减小且高度上限不变，面积必然减小。因此，只有移动短板才有可能获得更大的面积。</p>
+    </div>
+
+<script>
+    const hData = [1, 8, 6, 2, 5, 4, 8, 3, 7];
+    const maxH = Math.max(...hData);
+    let steps = [];
+    let cur = -1;
+
+    // 预生成算法步骤
+    function gen() {
+        let l = 0, r = hData.length - 1, m = 0;
+        const s = [];
+        while(l < r) {
+            let w = r - l, h = Math.min(hData[l], hData[r]), a = w * h, old = m;
+            m = Math.max(m, a);
+            s.push({
+                l, r, w, h, a, m, 
+                isNew: a > old, 
+                move: hData[l] < hData[r] ? 'Left 指针右移' : 'Right 指针左移'
+            });
+            if(hData[l] < hData[r]) l++; else r--;
+        }
+        s.push({l, r, m, done: true});
+        return s;
+    }
+
+    // 初始化 UI
+    function init() {
+        const b = document.getElementById('bars');
+        b.innerHTML = hData.map((h, i) => `
+            <div class="relative flex-1 flex flex-col items-center justify-end h-full group">
+                <span class="text-[8px] text-gray-300 mb-1 font-mono">${h}</span>
+                <div id="bar-${i}" class="w-[16px] bg-gray-100 rounded-t-sm bar-anim border-t border-x border-transparent" style="height:${(h/maxH)*85}%">
+                    <span class="pointer-tag tag-l bg-emerald-500 text-white">L</span>
+                    <span class="pointer-tag tag-r bg-red-500 text-white">R</span>
+                </div>
+            </div>
+        `).join('');
+        render(-1);
+    }
+
+    // 渲染特定步骤
+    function render(idx) {
+        // 重置所有柱子样式
+        hData.forEach((_, i) => {
+            const el = document.getElementById(`bar-${i}`);
+            el.className = 'w-[16px] bg-gray-100 rounded-t-sm bar-anim border-t border-x border-transparent';
+        });
+
+        const water = document.getElementById('water');
+        const logs = document.getElementById('logs');
+        
+        if (idx === -1) {
+            logs.innerHTML = '<div class="text-slate-500">> 算法就绪，指针分别位于 0 和 ' + (hData.length - 1) + '</div>';
+            document.getElementById('stat-w').innerText = '-';
+            document.getElementById('stat-h').innerText = '-';
+            document.getElementById('stat-area').innerText = '-';
+            document.getElementById('stat-max').innerText = '0';
+            water.style.opacity = '0';
+            return;
+        }
+
+        const s = steps[idx];
+        const lb = document.getElementById(`bar-${s.l}`), rb = document.getElementById(`bar-${s.r}`);
+        
+        if(lb) lb.classList.add('active-l');
+        if(rb) rb.classList.add('active-r');
+
+        if(!s.done) {
+            const bRect = document.getElementById('bars').getBoundingClientRect();
+            const lRect = lb.getBoundingClientRect(), rRect = rb.getBoundingClientRect();
+            
+            // 更新水位层
+            water.style.opacity = '1';
+            water.style.left = `${lRect.left - bRect.left}px`;
+            water.style.width = `${rRect.right - lRect.left}px`;
+            water.style.height = `${(s.h/maxH)*85}%`;
+            
+            // 更新统计数据
+            document.getElementById('stat-w').innerText = s.w;
+            document.getElementById('stat-h').innerText = s.h;
+            document.getElementById('stat-area').innerText = s.a;
+            document.getElementById('stat-area').className = s.isNew ? "text-sm font-mono font-bold text-amber-500" : "text-sm font-mono font-bold text-blue-600";
+        } else {
+            water.style.opacity = '0';
+        }
+        
+        document.getElementById('stat-max').innerText = s.m;
+
+        // 添加日志
+        const e = document.createElement('div');
+        if (s.done) {
+            e.className = "text-white border-t border-slate-800 pt-1 mt-1";
+            e.innerText = `> 扫描结束。最终最大面积: ${s.m}`;
+        } else {
+            e.className = s.isNew ? "text-amber-400 font-bold" : "text-slate-400";
+            e.innerText = `> 宽:${s.w} 高:${s.h} -> 面积:${s.a} (${s.move})`;
+        }
+        logs.appendChild(e);
+        logs.scrollTop = logs.scrollHeight;
+
+        // 按钮状态
+        document.getElementById('prev').disabled = idx <= -1;
+        document.getElementById('next').disabled = idx >= steps.length - 1;
+    }
+
+    steps = gen();
+    init();
+
+    document.getElementById('next').onclick = () => { 
+        if(cur < steps.length - 1) render(++cur); 
+    };
+
+    document.getElementById('prev').onclick = () => { 
+        if(cur >= 0) { 
+            cur--; 
+            document.getElementById('logs').innerHTML = ''; 
+            for(let i=0; i<=cur; i++) render(i); 
+            if(cur === -1) render(-1); 
+        } 
+    };
+
+    document.getElementById('reset').onclick = () => { 
+        cur = -1; 
+        document.getElementById('logs').innerHTML = ''; 
+        init(); 
+    };
+</script>
+</body>
+</html>

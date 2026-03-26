@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Longest Common Prefix Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .char-cell { transition: all 0.2s ease; }
+        .cell-scanning { 
+            background-color: #f59e0b; 
+            color: white; 
+            border-color: #d97706;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .cell-match { 
+            background-color: #ecfdf5; 
+            color: #059669; 
+            border-color: #10b981; 
+        }
+        .cell-mismatch { 
+            background-color: #fef2f2; 
+            color: #dc2626; 
+            border-color: #ef4444;
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        .scan-line {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: #f59e0b;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 p-2 md:p-4 font-sans text-slate-800">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <!-- 头部 -->
+        <div class="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-white">
+            <div>
+                <h1 class="text-sm font-bold text-slate-800">14. 最长公共前缀</h1>
+                <p class="text-[10px] text-slate-400">算法：纵向扫描 (Vertical Scanning) | 时间 $O(S)$</p>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-reset" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-gray-600 rounded text-xs font-semibold transition">重置</button>
+                <button id="btn-next" class="px-4 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-semibold shadow-sm transition">下一步</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 h-[420px]">
+            <!-- 左侧：比对矩阵 -->
+            <div class="md:col-span-8 p-6 bg-slate-50 flex flex-col items-start justify-center overflow-x-auto">
+                <div class="relative inline-block p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <!-- 动态扫描线 -->
+                    <div id="scan-line" class="scan-line hidden" style="left: 16px;"></div>
+                    
+                    <div id="strings-grid" class="flex flex-col gap-2">
+                        <!-- 由 JS 生成各行字符 -->
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-4 text-[9px] font-bold uppercase tracking-wider">
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-amber-500 rounded-sm"></div> 正在比对</div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-emerald-500 rounded-sm"></div> 匹配成功</div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-red-500 rounded-sm"></div> 发现不匹配</div>
+                </div>
+            </div>
+
+            <!-- 右侧：控制与状态 -->
+            <div class="md:col-span-4 border-l border-slate-100 flex flex-col bg-white">
+                <!-- 变量状态 -->
+                <div class="p-4 bg-slate-900 text-white shrink-0">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] text-slate-400 font-bold">纵向指针 (i)</span>
+                        <span id="pointer-i" class="text-lg font-mono font-bold text-amber-400">-</span>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-[9px] text-slate-400 font-bold uppercase block">当前公共前缀 (Result)</span>
+                        <div id="prefix-display" class="h-8 flex items-center bg-slate-800 rounded px-3 font-mono text-emerald-400 font-bold text-sm border border-slate-700">
+                            ""
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 逻辑描述 -->
+                <div class="p-4 border-b border-slate-100 bg-amber-50/30 shrink-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div id="indicator" class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                        <h3 id="step-title" class="text-[11px] font-bold text-slate-700">就绪</h3>
+                    </div>
+                    <code id="step-code" class="text-[10px] text-indigo-600 font-mono block mb-2"># 准备开始...</code>
+                    <p id="step-desc" class="text-[10px] text-slate-500 leading-tight">点击“下一步”开始逐列比对字符。</p>
+                </div>
+
+                <!-- 日志 -->
+                <div id="log-box" class="flex-1 p-3 font-mono text-[10px] text-slate-400 overflow-y-auto bg-white">
+                    <!-- Logs here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const strs = ["flower", "flow", "flight"];
+        const maxLen = Math.max(...strs.map(s => s.length));
+        
+        let colIndex = 0;
+        let isComplete = false;
+        let prefix = "";
+
+        function init() {
+            colIndex = 0;
+            isComplete = false;
+            prefix = "";
+
+            const grid = document.getElementById('strings-grid');
+            grid.innerHTML = '';
+
+            strs.forEach((str, sIdx) => {
+                const row = document.createElement('div');
+                row.className = "flex gap-1 items-center";
+                row.id = `row-${sIdx}`;
+                
+                // 行标
+                const label = document.createElement('span');
+                label.className = "w-12 text-[10px] font-mono text-slate-400 shrink-0";
+                label.innerText = `s[${sIdx}]`;
+                row.appendChild(label);
+
+                // 字符
+                for(let i=0; i<str.length; i++) {
+                    const char = document.createElement('div');
+                    char.id = `cell-${sIdx}-${i}`;
+                    char.className = "char-cell w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center border border-slate-200 rounded text-xs font-bold bg-white text-slate-600";
+                    char.innerText = str[i];
+                    row.appendChild(char);
+                }
+                grid.appendChild(row);
+            });
+
+            document.getElementById('scan-line').classList.add('hidden');
+            document.getElementById('prefix-display').innerText = '""';
+            document.getElementById('pointer-i').innerText = "-";
+            document.getElementById('log-box').innerHTML = '';
+            document.getElementById('btn-next').disabled = false;
+            document.getElementById('btn-next').innerText = "下一步";
+            document.getElementById('indicator').className = "w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse";
+            
+            log("初始化完成。输入列表: " + JSON.stringify(strs));
+        }
+
+        async function nextStep() {
+            if (isComplete) return;
+            const btn = document.getElementById('btn-next');
+            btn.disabled = true;
+
+            const title = document.getElementById('step-title');
+            const code = document.getElementById('step-code');
+            const desc = document.getElementById('step-desc');
+            const scanLine = document.getElementById('scan-line');
+
+            // 纵向扫描逻辑
+            title.innerText = `比对第 ${colIndex} 列`;
+            code.innerText = `char = first_str[${colIndex}]`;
+            document.getElementById('pointer-i').innerText = colIndex;
+
+            // 显示并移动扫描线
+            scanLine.classList.remove('hidden');
+            const firstCell = document.getElementById(`cell-0-${colIndex}`);
+            scanLine.style.left = `${firstCell.offsetLeft}px`;
+
+            const charToMatch = strs[0][colIndex];
+            log(`开始比对第 ${colIndex} 列，基准字符: '${charToMatch}'`);
+
+            let mismatchFound = false;
+            let mismatchReason = "";
+
+            for (let j = 0; j < strs.length; j++) {
+                const cellId = `cell-${j}-${colIndex}`;
+                const cell = document.getElementById(cellId);
+                
+                // 纵向比对当前行
+                if (cell) cell.classList.add('cell-scanning');
+                await sleep(200);
+
+                if (colIndex >= strs[j].length) {
+                    mismatchFound = true;
+                    mismatchReason = `字符串 s[${j}] 已结束`;
+                    log(`! 发现不匹配: ${mismatchReason}`);
+                    break;
+                }
+
+                if (strs[j][colIndex] !== charToMatch) {
+                    mismatchFound = true;
+                    mismatchReason = `s[${j}] 字符 '${strs[j][colIndex]}' 不匹配`;
+                    if (cell) {
+                        cell.classList.remove('cell-scanning');
+                        cell.classList.add('cell-mismatch');
+                    }
+                    log(`! 发现不匹配: ${mismatchReason}`);
+                    break;
+                }
+
+                if (cell) {
+                    cell.classList.remove('cell-scanning');
+                    cell.classList.add('cell-match');
+                }
+            }
+
+            if (!mismatchFound) {
+                prefix += charToMatch;
+                document.getElementById('prefix-display').innerText = `"${prefix}"`;
+                desc.innerText = `所有字符串在索引 ${colIndex} 处字符均为 '${charToMatch}'，前缀增长。`;
+                colIndex++;
+                
+                if (colIndex >= strs[0].length) {
+                    isComplete = true;
+                    finish("遍历完基准字符串，全匹配。");
+                }
+            } else {
+                isComplete = true;
+                finish(`不匹配发生，算法停止。结果为 "${prefix}"`);
+            }
+
+            if (!isComplete) btn.disabled = false;
+        }
+
+        function finish(msg) {
+            document.getElementById('step-title').innerText = "遍历结束";
+            document.getElementById('step-desc').innerText = msg;
+            document.getElementById('indicator').classList.replace('bg-amber-500', 'bg-green-500');
+            document.getElementById('btn-next').innerText = "完成";
+            document.getElementById('btn-next').disabled = true;
+            log("算法执行结束。最终前缀: " + prefix);
+        }
+
+        function log(msg) {
+            const box = document.getElementById('log-box');
+            const d = document.createElement('div');
+            d.className = "mb-1 border-l-2 border-slate-100 pl-2";
+            d.innerHTML = `<span class="text-slate-300">></span> ${msg}`;
+            box.prepend(d);
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        document.getElementById('btn-next').onclick = nextStep;
+        document.getElementById('btn-reset').onclick = init;
+        init();
+    </script>
+</body>
+</html>

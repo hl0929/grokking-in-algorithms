@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>删除有序数组中的重复项 - 可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell {
+            transition: all 0.5s ease;
+        }
+        .pointer {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .highlight-change {
+            animation: pulse 0.5s ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); background-color: #fef08a; }
+            50% { transform: scale(1.1); background-color: #fde047; }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl border border-slate-200">
+        <!-- Header -->
+        <div class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-slate-800">快慢指针可视化</h1>
+            <p class="text-sm text-slate-500">原地删除有序数组中的重复项</p>
+        </div>
+
+        <!-- Array Display -->
+        <div class="relative py-12 mb-8 bg-slate-100 rounded-xl overflow-hidden">
+            <div id="array-container" class="flex justify-center gap-2 px-4">
+                <!-- 动态生成的数组项 -->
+            </div>
+
+            <!-- Pointer Labels -->
+            <div id="pointers-container" class="absolute w-full h-full top-0 left-0 pointer-events-none">
+                <!-- slow 指针 -->
+                <div id="slow-ptr" class="pointer absolute flex flex-col items-center" style="bottom: 10px; transform: translateX(-50%);">
+                    <span class="text-blue-600 font-bold text-xs mb-1">slow (k)</span>
+                    <div class="w-1 h-4 bg-blue-500 rounded-full"></div>
+                </div>
+                <!-- fast 指针 -->
+                <div id="fast-ptr" class="pointer absolute flex flex-col items-center" style="top: 10px; transform: translateX(-50%);">
+                    <div class="w-1 h-4 bg-orange-500 rounded-full"></div>
+                    <span class="text-orange-600 font-bold text-xs mt-1">fast</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex flex-col gap-4">
+            <div id="status-msg" class="h-12 flex items-center justify-center text-center text-slate-700 font-medium bg-blue-50 rounded-lg px-4 border border-blue-100">
+                准备开始...
+            </div>
+            
+            <div class="flex justify-center gap-3">
+                <button id="prev-btn" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 rounded-lg transition-colors font-semibold">上一步</button>
+                <button id="play-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md font-semibold">开始</button>
+                <button id="next-btn" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 rounded-lg transition-colors font-semibold">下一步</button>
+                <button id="reset-btn" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-lg transition-colors">重置</button>
+            </div>
+
+            <!-- Code Snippet -->
+            <div class="mt-4 p-4 bg-slate-900 rounded-lg font-mono text-xs text-blue-300 leading-relaxed overflow-x-auto">
+                <div id="line-1">def remove_duplicates(nums):</div>
+                <div id="line-2" class="opacity-50 ml-4">slow = 0</div>
+                <div id="line-3" class="opacity-50 ml-4">for fast in range(len(nums)):</div>
+                <div id="line-4" class="opacity-50 ml-8">if nums[slow] != nums[fast]:</div>
+                <div id="line-5" class="opacity-50 ml-12">slow += 1</div>
+                <div id="line-6" class="opacity-50 ml-12">nums[slow] = nums[fast]</div>
+                <div id="line-7" class="opacity-50 ml-4">return slow + 1</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const initialNums = [1, 1, 2, 2, 3];
+        let nums = [...initialNums];
+        let step = 0;
+        let slow = 0;
+        let fast = 0;
+        let history = [];
+        let isAutoPlaying = false;
+        let timer = null;
+
+        const arrayContainer = document.getElementById('array-container');
+        const slowPtr = document.getElementById('slow-ptr');
+        const fastPtr = document.getElementById('fast-ptr');
+        const statusMsg = document.getElementById('status-msg');
+        const playBtn = document.getElementById('play-btn');
+
+        function init() {
+            nums = [...initialNums];
+            step = 0;
+            slow = 0;
+            fast = 0;
+            history = [];
+            calculateSteps();
+            render();
+            highlightCode(1);
+        }
+
+        // 预计算所有步骤，方便前后跳转
+        function calculateSteps() {
+            let tempNums = [...initialNums];
+            let s = 0;
+            
+            // Step 0: Initial
+            history.push({ nums: [...tempNums], s: 0, f: 0, msg: "初始化：slow 和 fast 都指向第 0 位", line: 2 });
+
+            for (let f = 0; f < tempNums.length; f++) {
+                // 进入循环比较
+                history.push({ 
+                    nums: [...tempNums], s, f, 
+                    msg: `比较 nums[slow](${tempNums[s]}) 和 nums[fast](${tempNums[f]})`,
+                    line: 4
+                });
+
+                if (tempNums[s] !== tempNums[f]) {
+                    s++;
+                    history.push({ 
+                        nums: [...tempNums], s, f, 
+                        msg: `值不同！slow 向前移动到索引 ${s}`,
+                        line: 5
+                    });
+                    
+                    const oldVal = tempNums[s];
+                    tempNums[s] = tempNums[f];
+                    history.push({ 
+                        nums: [...tempNums], s, f, 
+                        msg: `将 nums[fast](${tempNums[f]}) 赋值给 nums[slow]`,
+                        line: 6,
+                        changedIdx: s
+                    });
+                } else if (f > 0) {
+                    history.push({ 
+                        nums: [...tempNums], s, f, 
+                        msg: `值相同，忽略，fast 继续寻找下一个不同的数`,
+                        line: 3
+                    });
+                }
+            }
+            history.push({ 
+                nums: [...tempNums], s, f: tempNums.length - 1, 
+                msg: `算法结束。最终不重复长度为 slow + 1 = ${s + 1}`,
+                line: 7
+            });
+        }
+
+        function render() {
+            const current = history[step];
+            if (!current) return;
+
+            // 渲染数组
+            arrayContainer.innerHTML = '';
+            current.nums.forEach((val, idx) => {
+                const cell = document.createElement('div');
+                cell.className = `cell w-12 h-12 flex items-center justify-center border-2 rounded-lg font-bold text-lg 
+                    ${idx <= current.s ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-400'}
+                    ${current.changedIdx === idx ? 'highlight-change' : ''}`;
+                cell.textContent = val;
+                arrayContainer.appendChild(cell);
+            });
+
+            // 更新指针位置
+            const cells = arrayContainer.children;
+            const slowPos = cells[current.s].offsetLeft + (cells[current.s].offsetWidth / 2);
+            const fastPos = cells[current.f].offsetLeft + (cells[current.f].offsetWidth / 2);
+
+            slowPtr.style.left = `${slowPos}px`;
+            fastPtr.style.left = `${fastPos}px`;
+
+            // 更新状态
+            statusMsg.textContent = current.msg;
+            highlightCode(current.line);
+
+            // 更新按钮
+            document.getElementById('prev-btn').disabled = step === 0;
+            document.getElementById('next-btn').disabled = step === history.length - 1;
+            
+            if (step === history.length - 1) {
+                stopAutoPlay();
+            }
+        }
+
+        function highlightCode(lineNum) {
+            for (let i = 1; i <= 7; i++) {
+                const el = document.getElementById(`line-${i}`);
+                if (i === lineNum) {
+                    el.classList.remove('opacity-50');
+                    el.classList.add('bg-slate-700', 'text-white', 'px-1');
+                } else {
+                    el.classList.add('opacity-50');
+                    el.classList.remove('bg-slate-700', 'text-white', 'px-1');
+                }
+            }
+        }
+
+        function next() {
+            if (step < history.length - 1) {
+                step++;
+                render();
+            }
+        }
+
+        function prev() {
+            if (step > 0) {
+                step--;
+                render();
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (isAutoPlaying) {
+                stopAutoPlay();
+            } else {
+                startAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            if (step === history.length - 1) step = 0;
+            isAutoPlaying = true;
+            playBtn.textContent = "暂停";
+            playBtn.classList.replace('bg-blue-600', 'bg-orange-600');
+            timer = setInterval(() => {
+                if (step < history.length - 1) {
+                    next();
+                } else {
+                    stopAutoPlay();
+                }
+            }, 1000);
+        }
+
+        function stopAutoPlay() {
+            isAutoPlaying = false;
+            playBtn.textContent = "播放";
+            playBtn.classList.replace('bg-orange-600', 'bg-blue-600');
+            clearInterval(timer);
+        }
+
+        // Listeners
+        document.getElementById('next-btn').onclick = next;
+        document.getElementById('prev-btn').onclick = prev;
+        document.getElementById('reset-btn').onclick = () => { stopAutoPlay(); init(); };
+        playBtn.onclick = toggleAutoPlay;
+
+        window.onload = init;
+    </script>
+</body>
+</html>

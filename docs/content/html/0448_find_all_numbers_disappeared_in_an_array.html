@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Disappeared Numbers Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell-anim { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .is-negative { background-color: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+        .is-positive { background-color: #f0fdf4; border-color: #22c55e; color: #15803d; }
+        .pointer { transition: transform 0.3s ease; }
+        @keyframes pulse-red {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); background-color: #fca5a5; }
+        }
+        .marking { animation: pulse-red 0.6s ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-50 p-2 m-0 font-sans text-slate-900">
+
+    <div class="flex flex-col w-full max-w-3xl mx-auto bg-white border border-slate-100 rounded-xl shadow-md overflow-hidden mb-4">
+        
+        <!-- 头部 -->
+        <div class="px-4 py-3 bg-slate-800 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-sm font-bold uppercase tracking-wider">LeetCode 448: Find Disappeared Numbers</h1>
+                <p class="text-[10px] text-slate-400">原地标记算法演示 (Space: O(1))</p>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-reset" class="bg-slate-600 hover:bg-slate-500 text-[10px] px-3 py-1 rounded transition">重置</button>
+                <button id="btn-next" class="bg-blue-500 hover:bg-blue-400 text-[10px] px-4 py-1 rounded font-bold transition">下一步</button>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-8">
+            <!-- 数组展示 -->
+            <div>
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">当前数组状态 (nums)</span>
+                    <span id="phase-tag" class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[9px] font-bold uppercase">Phase 1: Marking</span>
+                </div>
+                <div id="array-container" class="flex gap-1 justify-between overflow-x-auto pb-4">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 逻辑解释卡片 -->
+            <div id="logic-card" class="bg-blue-50 border border-blue-100 p-4 rounded-lg flex flex-col gap-2 min-h-[100px]">
+                <div class="flex items-center gap-2">
+                    <span id="logic-icon" class="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                    <h2 id="logic-title" class="text-xs font-bold text-blue-800">准备开始</h2>
+                </div>
+                <p id="logic-text" class="text-[11px] text-blue-700 leading-relaxed">点击“下一步”开始遍历数组并进行标记。</p>
+            </div>
+
+            <!-- 结果面板 -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-[9px] text-slate-400 uppercase block mb-1">正在处理的数字</span>
+                    <div id="current-val" class="text-xl font-mono font-bold text-slate-700">-</div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span class="text-[9px] text-slate-400 uppercase block mb-1">结果集 (res)</span>
+                    <div id="result-set" class="text-xl font-mono font-bold text-emerald-600">[]</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="bg-slate-900 p-3 font-mono text-[11px] text-slate-400 h-32 overflow-y-auto" id="logs">
+            <div>> 等待操作...</div>
+        </div>
+    </div>
+
+<script>
+    const originalNums = [4, 3, 2, 7, 8, 2, 3, 1];
+    let nums = [...originalNums];
+    let step = 0;
+    let phase = 1; // 1: Marking, 2: Collecting, 3: Finished
+    let cursor = 0;
+    let result = [];
+
+    function init() {
+        nums = [...originalNums];
+        step = 0;
+        phase = 1;
+        cursor = 0;
+        result = [];
+        renderArray();
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('phase-tag').innerText = "Phase 1: Marking";
+        document.getElementById('phase-tag').className = "px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[9px] font-bold uppercase";
+        document.getElementById('result-set').innerText = "[]";
+        document.getElementById('current-val').innerText = "-";
+        document.getElementById('logic-title').innerText = "标记阶段";
+        document.getElementById('logic-text').innerText = "我们将遍历数组，把数字指向的索引位置变为负数，表示该数字『已出现』。";
+        document.getElementById('logs').innerHTML = '<div>> 已重置。输入数组: [4,3,2,7,8,2,3,1]</div>';
+    }
+
+    function renderArray() {
+        const container = document.getElementById('array-container');
+        container.innerHTML = nums.map((n, i) => `
+            <div class="flex flex-col items-center gap-1 flex-1 min-w-[40px]">
+                <span class="text-[8px] font-mono text-slate-400">idx:${i}</span>
+                <div id="cell-${i}" class="cell-anim w-full h-12 flex items-center justify-center border-2 rounded-lg font-mono font-bold text-sm ${n < 0 ? 'is-negative border-red-400' : 'bg-white border-slate-200'}">
+                    ${n}
+                </div>
+                <span class="text-[9px] font-bold text-slate-500">#${i+1}</span>
+                ${cursor === i ? '<div class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-blue-500 mt-1"></div>' : '<div class="h-[9px]"></div>'}
+            </div>
+        `).join('');
+    }
+
+    function next() {
+        if (phase === 1) {
+            handleMarking();
+        } else if (phase === 2) {
+            handleCollecting();
+        }
+    }
+
+    function handleMarking() {
+        if (cursor < nums.length) {
+            const val = Math.abs(nums[cursor]);
+            const targetIdx = val - 1;
+            
+            document.getElementById('current-val').innerText = val;
+            log(`检查 nums[${cursor}] = ${val}。它指向索引 ${targetIdx}。`);
+            
+            // 动画高亮目标
+            const targetCell = document.getElementById(`cell-${targetIdx}`);
+            targetCell.classList.add('marking');
+            
+            if (nums[targetIdx] > 0) {
+                nums[targetIdx] = -nums[targetIdx];
+                log(`将 nums[${targetIdx}] 标记为负数: ${nums[targetIdx]}`, "text-red-400");
+                document.getElementById('logic-text').innerText = `数字 ${val} 出现了！我们把位置 #${val} (索引 ${targetIdx}) 的值改为负数。`;
+            } else {
+                log(`nums[${targetIdx}] 已经是负数，跳过。`, "text-slate-500");
+                document.getElementById('logic-text').innerText = `数字 ${val} 再次出现。目标位置已经有标记了，无需操作。`;
+            }
+
+            cursor++;
+            if (cursor === nums.length) {
+                phase = 2;
+                cursor = 0;
+                log("--- 标记阶段结束。进入收集阶段 ---", "text-blue-400");
+                document.getElementById('phase-tag').innerText = "Phase 2: Collecting";
+                document.getElementById('phase-tag').className = "px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded-full text-[9px] font-bold uppercase";
+                document.getElementById('logic-title').innerText = "收集阶段";
+            }
+            setTimeout(renderArray, 300);
+        }
+    }
+
+    function handleCollecting() {
+        if (cursor < nums.length) {
+            const val = nums[cursor];
+            log(`检查位置 #${cursor + 1}: 值为 ${val}`);
+            
+            if (val > 0) {
+                result.push(cursor + 1);
+                document.getElementById('result-set').innerText = JSON.stringify(result);
+                log(`发现正数！说明数字 ${cursor + 1} 没出现过。将其加入结果。`, "text-emerald-500 font-bold");
+                document.getElementById('logic-text').innerText = `索引 ${cursor} 处的值是正数 ${val}。这意味着没有数字指向这里，所以消失的数字是 ${cursor + 1}。`;
+            } else {
+                document.getElementById('logic-text').innerText = `索引 ${cursor} 处的值是负数。这意味着它被标记过，对应的数字 ${cursor + 1} 是存在的。`;
+            }
+
+            cursor++;
+            if (cursor === nums.length) {
+                log(`--- 完成！消失的数字是: ${JSON.stringify(result)} ---`, "text-amber-500 font-bold text-xs");
+                document.getElementById('btn-next').disabled = true;
+                document.getElementById('logic-title').innerText = "检测完成";
+                document.getElementById('logic-text').innerText = `所有正数位置对应的编号即为数组中缺失的数字。`;
+            }
+            renderArray();
+        }
+    }
+
+    function log(msg, colorClass = "") {
+        const l = document.getElementById('logs');
+        const d = document.createElement('div');
+        d.className = `mb-1 ${colorClass}`;
+        d.innerText = `> ${msg}`;
+        l.appendChild(d);
+        l.scrollTop = l.scrollHeight;
+    }
+
+    document.getElementById('btn-next').onclick = next;
+    document.getElementById('btn-reset').onclick = init;
+    
+    init();
+</script>
+</body>
+</html>

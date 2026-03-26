@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子数组和为 K 可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .prefix-bar { transition: height 0.5s ease, background-color 0.3s ease; }
+        .dict-entry { transition: all 0.2s ease; }
+        .highlight-target { outline: 2px solid #f59e0b; outline-offset: 1px; }
+        
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f1f5f9;
+            margin: 0;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="max-w-2xl w-full mx-auto">
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
+            <header class="text-center mb-4">
+                <h1 class="text-lg font-bold text-slate-800">子数组和为 K (前缀和优化)</h1>
+                <div class="inline-block mt-1 px-2 py-0.5 bg-blue-50 rounded-full text-[10px] font-mono text-blue-600 font-bold uppercase tracking-tighter">
+                    Target K = <span id="k-val">7</span>
+                </div>
+            </header>
+            
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                <!-- 扫描区 -->
+                <div class="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                    <h2 class="text-[9px] font-bold text-slate-400 uppercase mb-2 flex justify-between">
+                        <span>数组扫描 (Nums)</span>
+                        <span class="text-blue-500 font-mono">Prefix Sum: <span id="current-prefix">0</span></span>
+                    </h2>
+                    <div id="array-container" class="flex justify-center items-end gap-1.5 h-24 pt-2">
+                        <!-- JS 渲染 -->
+                    </div>
+                </div>
+
+                <!-- 存档区 -->
+                <div class="md:col-span-2 bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col">
+                    <h2 class="text-[9px] font-bold text-indigo-400 uppercase mb-2 text-center">哈希表 (sum_dict)</h2>
+                    <div id="dict-container" class="flex flex-col gap-1 overflow-y-auto max-h-[120px] pr-1">
+                        <!-- JS 渲染 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 说明 -->
+            <div class="bg-slate-900 rounded-xl p-3 mb-4 border border-slate-800 min-h-[60px] flex items-center justify-center text-center">
+                <p id="log-content" class="text-xs text-indigo-200 font-mono leading-tight"></p>
+            </div>
+
+            <!-- 控制区 -->
+            <div class="flex flex-col items-center gap-4">
+                <div class="flex gap-4 items-center">
+                    <div class="text-[9px] text-slate-400 font-bold uppercase">符合条件计数:</div>
+                    <div id="counter-display" class="text-xl font-black text-indigo-600">0</div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button id="prev-btn" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold disabled:opacity-30">上一步</button>
+                    <button id="next-btn" class="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md active:scale-95">下一步</button>
+                    <button id="reset-btn" class="p-1.5 text-slate-300 hover:text-slate-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nums = [3, 4, 7, -2, 2, 1, 4, 2];
+        const k = 7;
+        let history = [];
+        let currentStepIndex = 0;
+
+        function generateSteps() {
+            let steps = [];
+            let prefix = 0;
+            let counter = 0;
+            let sum_dict = {0: 1};
+
+            steps.push({
+                prefix: 0, counter: 0, dict: {...sum_dict}, currentIndex: -1,
+                msg: "初始化：sum_dict 存入 {0:1}。这是算法的核心，用于匹配从数组开头起始的子数组。",
+                target: null
+            });
+
+            for (let i = 0; i < nums.length; i++) {
+                prefix += nums[i];
+                let target = prefix - k;
+                
+                // 1. 检查阶段
+                steps.push({
+                    prefix, counter, dict: {...sum_dict}, currentIndex: i,
+                    msg: `当前前缀和 ${prefix}。查找历史中是否存在 ${target} (${prefix} - ${k})。`,
+                    target, found: !!sum_dict[target]
+                });
+
+                if (sum_dict[target]) {
+                    counter += sum_dict[target];
+                    steps.push({
+                        prefix, counter, dict: {...sum_dict}, currentIndex: i,
+                        msg: `匹配成功！${target} 在历史中出现过 ${sum_dict[target]} 次，增加了 ${sum_dict[target]} 个子数组。`,
+                        target, found: true
+                    });
+                }
+
+                // 2. 更新阶段
+                sum_dict[prefix] = (sum_dict[prefix] || 0) + 1;
+                steps.push({
+                    prefix, counter, dict: {...sum_dict}, currentIndex: i,
+                    msg: `更新哈希表：记录当前的前缀和 ${prefix}。`,
+                    target: null
+                });
+            }
+
+            steps.push({
+                prefix, counter, dict: {...sum_dict}, currentIndex: nums.length - 1,
+                msg: "遍历完毕。最终找到 " + counter + " 个符合条件的子数组。",
+                target: null
+            });
+
+            return steps;
+        }
+
+        function renderStep(step) {
+            const arrayContainer = document.getElementById('array-container');
+            const dictContainer = document.getElementById('dict-container');
+            const logContent = document.getElementById('log-content');
+            const currentPrefixLabel = document.getElementById('current-prefix');
+            const counterDisplay = document.getElementById('counter-display');
+
+            arrayContainer.innerHTML = '';
+            nums.forEach((val, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col items-center gap-1';
+                const bar = document.createElement('div');
+                const isCurrent = idx === step.currentIndex;
+                // 缩放柱状图高度以便观察
+                const h = Math.abs(val) * 8 + 15;
+                bar.style.height = `${h}px`;
+                bar.className = `prefix-bar w-8 rounded-t flex items-center justify-center text-[10px] font-bold ${isCurrent ? 'bg-indigo-600 text-white ring-2 ring-indigo-200 scale-110' : 'bg-slate-200 text-slate-500'}`;
+                bar.innerText = val;
+                wrapper.appendChild(bar);
+                arrayContainer.appendChild(wrapper);
+            });
+
+            dictContainer.innerHTML = '';
+            Object.entries(step.dict).sort((a,b) => a[0]-b[0]).forEach(([s, count]) => {
+                const entry = document.createElement('div');
+                const isTarget = step.target !== null && parseInt(s) === step.target;
+                entry.className = `dict-entry px-2 py-1 rounded-md border flex justify-between items-center text-[10px] font-mono ${isTarget ? 'bg-yellow-100 border-yellow-400 text-yellow-800 font-bold highlight-target scale-105' : 'bg-white border-indigo-50 text-indigo-500'}`;
+                entry.innerHTML = `<span>Sum: ${s}</span> <span class="bg-indigo-100 px-1.5 rounded text-[9px]">×${count}</span>`;
+                dictContainer.appendChild(entry);
+            });
+
+            logContent.innerText = `> ${step.msg}`;
+            currentPrefixLabel.innerText = step.prefix;
+            counterDisplay.innerText = step.counter;
+            document.getElementById('prev-btn').disabled = currentStepIndex === 0;
+            document.getElementById('next-btn').disabled = currentStepIndex === history.length - 1;
+        }
+
+        function init() {
+            history = generateSteps();
+            currentStepIndex = 0;
+            renderStep(history[currentStepIndex]);
+        }
+
+        document.getElementById('next-btn').onclick = () => { if (currentStepIndex < history.length - 1) { currentStepIndex++; renderStep(history[currentStepIndex]); } };
+        document.getElementById('prev-btn').onclick = () => { if (currentStepIndex > 0) { currentStepIndex--; renderStep(history[currentStepIndex]); } };
+        document.getElementById('reset-btn').onclick = init;
+        window.onload = init;
+    </script>
+</body>
+</html>

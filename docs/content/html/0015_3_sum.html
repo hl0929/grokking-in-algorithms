@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Sum Algorithm Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 针对嵌入环境的滚动条美化 */
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        .pointer-transition { transition: all 0.3s ease; }
+        
+        .pointer-label {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 8px;
+            font-weight: bold;
+            padding: 0px 3px;
+            border-radius: 2px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* 激活状态样式 */
+        .highlight-i { background-color: #3b82f6 !important; color: white !important; border-color: #2563eb !important; }
+        .highlight-i .label-i { opacity: 1; top: -22px; }
+
+        .highlight-left { background-color: #10b981 !important; color: white !important; border-color: #059669 !important; }
+        .highlight-left .label-l { opacity: 1; top: -22px; }
+
+        .highlight-right { background-color: #ef4444 !important; color: white !important; border-color: #dc2626 !important; }
+        .highlight-right .label-r { opacity: 1; top: -22px; }
+
+        .cell { 
+            width: 30px; height: 30px; 
+            display: flex; align-items: center; justify-content: center; 
+            border-radius: 4px; font-weight: bold; font-size: 0.8rem; position: relative;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-white m-0 p-0 font-sans antialiased overflow-hidden">
+
+    <!-- 容器：高度进一步压缩，支持内部滑动 -->
+    <div class="flex flex-col w-full max-w-full bg-white border border-gray-100 rounded-md shadow-sm overflow-hidden" style="max-height: 420px;">
+        
+        <!-- 头部状态 -->
+        <div class="px-2 py-1.5 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+            <h2 class="text-[10px] font-bold text-gray-600">3-Sum 可视化步进</h2>
+            <div class="flex gap-2">
+                <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span><span class="text-[8px] text-gray-400">i</span></div>
+                <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span><span class="text-[8px] text-gray-400">L</span></div>
+                <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span><span class="text-[8px] text-gray-400">R</span></div>
+            </div>
+        </div>
+
+        <!-- 主内容区：支持纵向滚动 -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-3">
+            
+            <!-- 数组显示区 -->
+            <div class="flex justify-center shrink-0">
+                <div id="array-container" class="flex gap-1 py-5 overflow-x-auto no-scrollbar items-center px-1">
+                    <!-- JS 动态注入 -->
+                </div>
+            </div>
+
+            <!-- 数据与求和：合并到一行以节省高度 -->
+            <div class="flex items-center gap-2">
+                <div class="flex-1 grid grid-cols-3 gap-1">
+                    <div class="py-0.5 bg-blue-50/50 rounded border border-blue-100 text-center">
+                        <p class="text-[8px] text-blue-500 scale-90">nums[i]</p>
+                        <p id="val-i" class="text-xs font-mono font-bold">-</p>
+                    </div>
+                    <div class="py-0.5 bg-emerald-50/50 rounded border border-emerald-100 text-center">
+                        <p class="text-[8px] text-emerald-500 scale-90">nums[L]</p>
+                        <p id="val-left" class="text-xs font-mono font-bold">-</p>
+                    </div>
+                    <div class="py-0.5 bg-red-50/50 rounded border border-red-100 text-center">
+                        <p class="text-[8px] text-red-500 scale-90">nums[R]</p>
+                        <p id="val-right" class="text-xs font-mono font-bold">-</p>
+                    </div>
+                </div>
+                <div class="px-2 py-1 bg-gray-100 rounded text-[10px] whitespace-nowrap">
+                    Sum: <span id="current-sum" class="font-bold text-gray-500">-</span>
+                </div>
+            </div>
+
+            <!-- 结果显示 -->
+            <div class="bg-gray-50 p-1.5 rounded border border-gray-100">
+                <p class="text-[8px] font-bold text-gray-400 mb-1 uppercase tracking-tighter">找到的解:</p>
+                <div id="results" class="flex flex-wrap gap-1 min-h-[14px]">
+                    <span class="text-[9px] text-gray-300 italic">等待开始...</span>
+                </div>
+            </div>
+
+            <!-- 算法日志：高度固定，内部滚动 -->
+            <div class="bg-slate-900 rounded p-1.5 font-mono text-[9px] text-slate-400">
+                <div id="logs" class="space-y-0.5 h-16 overflow-y-auto">
+                    <div>> 准备就绪</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制栏：吸底且更小巧 -->
+        <div class="p-1.5 bg-white border-t border-gray-100 flex gap-1.5 shrink-0">
+            <button id="btn-prev" class="flex-1 py-1 text-[9px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-30">上一步</button>
+            <button id="btn-next" class="flex-[2] py-1 text-[9px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded shadow-sm disabled:opacity-30">单步执行</button>
+            <button id="btn-reset" class="px-1.5 text-gray-300 hover:text-gray-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const nums = [-1, 0, 1, 2, -1, -4].sort((a, b) => a - b);
+        let steps = [];
+        let currentStep = -1;
+        const resultsFound = new Set();
+
+        function generateSteps() {
+            const n = nums.length;
+            const s = [];
+            for (let i = 0; i < n - 2; i++) {
+                if (nums[i] > 0) {
+                    s.push({ i, l: null, r: null, msg: `nums[i]>0, 终止`, type: 'break' });
+                    break;
+                }
+                if (i > 0 && nums[i] === nums[i - 1]) {
+                    s.push({ i, l: null, r: null, msg: `跳过重复固定项: ${nums[i]}`, type: 'skip' });
+                    continue;
+                }
+                let left = i + 1;
+                let right = n - 1;
+                while (left < right) {
+                    const sum = nums[i] + nums[left] + nums[right];
+                    s.push({ i, l: left, r: right, sum, msg: `${nums[i]}+${nums[left]}+${nums[right]}=${sum}`, type: 'check' });
+                    if (sum === 0) {
+                        const res = [nums[i], nums[left], nums[right]];
+                        s.push({ i, l: left, r: right, sum, res, msg: `√ 匹配: [${res.join(',')}]`, type: 'found' });
+                        while (left < right && nums[left] === nums[left + 1]) { left++; s.push({ i, l: left, r: right, msg: `跳过左侧重复: ${nums[left]}`, type: 'move' }); }
+                        left++;
+                        while (left < right && nums[right] === nums[right - 1]) { right--; s.push({ i, l: left, r: right, msg: `跳过右侧重复: ${nums[right]}`, type: 'move' }); }
+                        right--;
+                    } else if (sum > 0) { right--; s.push({ i, l: left, r: right, msg: `和过大, R左移`, type: 'move' }); }
+                    else { left++; s.push({ i, l: left, r: right, msg: `和过小, L右移`, type: 'move' }); }
+                }
+            }
+            return s;
+        }
+
+        function initUI() {
+            const container = document.getElementById('array-container');
+            container.innerHTML = '';
+            nums.forEach((num, index) => {
+                const div = document.createElement('div');
+                div.className = `cell border border-gray-100 bg-gray-50 pointer-transition shrink-0`;
+                div.id = `cell-${index}`;
+                div.innerHTML = `${num}<span class="pointer-label label-i bg-blue-500 text-white">i</span><span class="pointer-label label-l bg-emerald-500 text-white">L</span><span class="pointer-label label-r bg-red-500 text-white">R</span>`;
+                container.appendChild(div);
+            });
+            renderStep(-1);
+        }
+
+        function renderStep(index) {
+            nums.forEach((_, i) => document.getElementById(`cell-${i}`).className = 'cell border border-gray-100 bg-gray-50 pointer-transition shrink-0');
+            const resDiv = document.getElementById('results');
+            const logDiv = document.getElementById('logs');
+            const sumSpan = document.getElementById('current-sum');
+            
+            if (index === -1) {
+                logDiv.innerHTML = '<div>> 算法就绪</div>';
+                resDiv.innerHTML = '<span class="text-[9px] text-gray-300 italic">等待开始...</span>';
+                sumSpan.innerText = '-';
+                sumSpan.className = "text-gray-400 font-bold";
+                document.getElementById('val-i').innerText = '-';
+                document.getElementById('val-left').innerText = '-';
+                document.getElementById('val-right').innerText = '-';
+                resultsFound.clear();
+                return;
+            }
+
+            const step = steps[index];
+            if (step.i !== null) document.getElementById(`cell-${step.i}`).classList.add('highlight-i');
+            if (step.l !== null) document.getElementById(`cell-${step.l}`).classList.add('highlight-left');
+            if (step.r !== null) document.getElementById(`cell-${step.r}`).classList.add('highlight-right');
+
+            document.getElementById('val-i').innerText = step.i !== null ? nums[step.i] : '-';
+            document.getElementById('val-left').innerText = step.l !== null ? nums[step.l] : '-';
+            document.getElementById('val-right').innerText = step.r !== null ? nums[step.r] : '-';
+
+            if (step.sum !== undefined) {
+                sumSpan.innerText = step.sum;
+                sumSpan.className = step.sum === 0 ? "text-emerald-600 font-bold" : (step.sum > 0 ? "text-red-500 font-bold" : "text-blue-500 font-bold");
+            }
+
+            const entry = document.createElement('div');
+            entry.className = step.type === 'found' ? "text-emerald-400" : (step.type === 'check' ? "text-blue-300" : "text-slate-400");
+            entry.innerText = `> ${step.msg}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+
+            if (step.type === 'found') {
+                const key = step.res.join(',');
+                if (!resultsFound.has(key)) {
+                    resultsFound.add(key);
+                    if (resultsFound.size === 1) resDiv.innerHTML = '';
+                    const b = document.createElement('span');
+                    b.className = "px-1 py-0.5 bg-slate-800 text-white rounded text-[8px] font-bold";
+                    b.innerText = `[${key}]`;
+                    resDiv.appendChild(b);
+                }
+            }
+            document.getElementById('btn-prev').disabled = index <= -1;
+            document.getElementById('btn-next').disabled = index >= steps.length - 1;
+        }
+
+        steps = generateSteps();
+        initUI();
+
+        document.getElementById('btn-next').onclick = () => { if (currentStep < steps.length - 1) renderStep(++currentStep); };
+        document.getElementById('btn-prev').onclick = () => {
+            if (currentStep >= 0) {
+                currentStep--;
+                document.getElementById('logs').innerHTML = '';
+                document.getElementById('results').innerHTML = '';
+                resultsFound.clear();
+                for(let i=0; i<=currentStep; i++) renderStep(i);
+                if (currentStep === -1) renderStep(-1);
+            }
+        };
+        document.getElementById('btn-reset').onclick = () => { currentStep = -1; document.getElementById('logs').innerHTML = ''; document.getElementById('results').innerHTML = ''; initUI(); };
+    </script>
+</body>
+</html>

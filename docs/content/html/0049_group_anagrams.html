@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Anagrams Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .group-card { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .word-token { animation: popIn 0.3s ease-out forwards; }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.5) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-gray-50 p-2 m-0 font-sans">
+
+    <div class="flex flex-col w-full max-w-3xl mx-auto bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden mb-4">
+        
+        <!-- 头部 -->
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+            <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">LeetCode 49: Group Anagrams</span>
+                <span class="text-[8px] text-gray-400">基于 26 位特征码的分组算法</span>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-prev" class="bg-slate-200 text-slate-600 text-[10px] px-2 py-1 rounded hover:bg-slate-300 disabled:opacity-30" disabled>上一步</button>
+                <button id="btn-next" class="bg-blue-600 text-white text-[10px] px-3 py-1 rounded hover:bg-blue-700">下一步</button>
+                <button id="btn-reset" class="bg-slate-600 text-white text-[10px] px-2 py-1 rounded hover:bg-slate-700">重置</button>
+            </div>
+        </div>
+
+        <div class="p-4 flex flex-col gap-6">
+            <!-- 输入单词队列 -->
+            <div class="bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200">
+                <p class="text-[8px] text-slate-400 uppercase mb-2">待处理队列 (Input Strs)</p>
+                <div id="input-queue" class="flex gap-2">
+                    <!-- 单词节点 -->
+                </div>
+            </div>
+
+            <!-- 当前处理细节 -->
+            <div id="current-process" class="hidden bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-center gap-4">
+                <div class="flex flex-col items-center">
+                    <span class="text-[8px] text-blue-400 uppercase">当前单词</span>
+                    <div id="active-word" class="text-lg font-bold text-blue-700">eat</div>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <span class="text-[8px] text-blue-400 uppercase">26位特征码 (Non-zero only)</span>
+                    <div id="active-key" class="text-[10px] font-mono text-blue-600 truncate"></div>
+                </div>
+            </div>
+
+            <!-- 分组容器 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="groups-container">
+                <!-- 分组将在此动态生成 -->
+            </div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="bg-slate-900 p-2 font-mono text-[10px] text-slate-400 h-28 overflow-y-auto" id="logs">
+            <div>> 点击“下一步”开始分析第一个单词。</div>
+        </div>
+    </div>
+
+<script>
+    const strs = ["eat", "tea", "tan", "ate", "nat", "bat"];
+    let currentIndex = 0;
+    let groups = {}; // Key: stringKey, Value: {words: [], id: number}
+    let groupCount = 0;
+
+    function getFeatureKey(s) {
+        let counts = new Array(26).fill(0);
+        for (let char of s) {
+            counts[char.charCodeAt(0) - 97]++;
+        }
+        return {
+            tuple: counts.join(','),
+            display: counts.map((v, i) => v > 0 ? `${String.fromCharCode(97+i)}:${v}` : '').filter(v => v).join(', ')
+        };
+    }
+
+    function init() {
+        currentIndex = 0;
+        groups = {};
+        groupCount = 0;
+        document.getElementById('input-queue').innerHTML = strs.map((s, i) => `
+            <div id="word-${i}" class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-600 transition-all">${s}</div>
+        `).join('');
+        document.getElementById('groups-container').innerHTML = '';
+        document.getElementById('current-process').classList.add('hidden');
+        document.getElementById('logs').innerHTML = '<div>> 准备就绪，点击下一步开始。</div>';
+        document.getElementById('btn-next').disabled = false;
+        updateUI();
+    }
+
+    function updateUI() {
+        strs.forEach((_, i) => {
+            const el = document.getElementById(`word-${i}`);
+            if (i < currentIndex) el.classList.add('opacity-30', 'scale-90');
+            else if (i === currentIndex) el.classList.add('border-blue-500', 'text-blue-600', 'ring-2', 'ring-blue-100');
+            else el.className = "px-3 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-600 transition-all";
+        });
+    }
+
+    function next() {
+        if (currentIndex >= strs.length) return;
+
+        const word = strs[currentIndex];
+        const feature = getFeatureKey(word);
+        const key = feature.tuple;
+
+        // 显示当前处理
+        document.getElementById('current-process').classList.remove('hidden');
+        document.getElementById('active-word').innerText = word;
+        document.getElementById('active-key').innerText = `[${feature.display}]`;
+
+        log(`分析单词 "${word}"...`);
+        log(`生成特征码: ${feature.display}`);
+
+        if (!groups[key]) {
+            groupCount++;
+            groups[key] = { id: groupCount, words: [] };
+            const groupDiv = document.createElement('div');
+            groupDiv.id = `group-${groups[key].id}`;
+            groupDiv.className = 'group-card bg-white border border-slate-200 rounded-lg p-3 shadow-sm';
+            groupDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-2 border-b border-slate-50 pb-1">
+                    <span class="text-[8px] font-bold text-slate-400 uppercase">家族 #${groups[key].id}</span>
+                    <span class="text-[7px] font-mono text-blue-400">KEY: ${feature.display}</span>
+                </div>
+                <div class="flex flex-wrap gap-1" id="group-list-${groups[key].id}"></div>
+            `;
+            document.getElementById('groups-container').appendChild(groupDiv);
+            log(`创建新家族 #${groupCount}`, 'text-blue-500');
+        } else {
+            log(`匹配到已有家族 #${groups[key].id}`, 'text-emerald-500');
+        }
+
+        // 添加单词到组
+        groups[key].words.push(word);
+        const wordToken = document.createElement('span');
+        wordToken.className = 'word-token px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold border border-blue-100';
+        wordToken.innerText = word;
+        document.getElementById(`group-list-${groups[key].id}`).appendChild(wordToken);
+
+        currentIndex++;
+        updateUI();
+
+        if (currentIndex === strs.length) {
+            log("--- 所有单词处理完毕！ ---", "text-slate-200 font-bold");
+            document.getElementById('btn-next').disabled = true;
+            document.getElementById('status-text');
+        }
+    }
+
+    function log(msg, colorClass = "") {
+        const l = document.getElementById('logs');
+        const d = document.createElement('div');
+        d.className = colorClass;
+        d.innerText = `> ${msg}`;
+        l.appendChild(d);
+        l.scrollTop = l.scrollHeight;
+    }
+
+    document.getElementById('btn-next').onclick = next;
+    document.getElementById('btn-reset').onclick = init;
+    
+    init();
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动零算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .element-node {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f8fafc;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="max-w-2xl w-full mx-auto p-4 flex flex-col items-center">
+        <!-- 主容器 -->
+        <div class="w-full bg-white rounded-3xl shadow-2xl p-6 md:p-10 border border-slate-100">
+            <header class="text-center mb-8">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">移动零 (Move Zeroes) 可视化</h1>
+                <div class="inline-block mt-2 px-3 py-1 bg-indigo-50 rounded-full text-[10px] font-mono text-indigo-500 uppercase tracking-widest">
+                    双指针法: O(N) 时间 | O(1) 空间
+                </div>
+            </header>
+            
+            <!-- 数组显示区 -->
+            <div id="array-container" class="relative flex justify-center items-end gap-2 h-28 mb-14 px-2">
+                <!-- 由 JS 渲染 -->
+            </div>
+
+            <!-- 动态说明文字 -->
+            <div id="status-box" class="bg-slate-50 rounded-2xl p-4 mb-8 border border-slate-100 min-h-[80px] flex items-center justify-center text-center">
+                <p id="log-content" class="text-sm text-slate-600 font-medium leading-relaxed"></p>
+            </div>
+
+            <!-- 交互控制面板 -->
+            <div class="flex flex-col items-center gap-6">
+                <!-- 指针标识图例 -->
+                <div class="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-wider">
+                    <div class="flex items-center gap-2 text-blue-600">
+                        <span class="w-2.5 h-2.5 bg-blue-500 rounded-sm"></span> slow (填坑位)
+                    </div>
+                    <div class="flex items-center gap-2 text-orange-600">
+                        <span class="w-2.5 h-2.5 bg-orange-500 rounded-sm"></span> fast (探索者)
+                    </div>
+                </div>
+
+                <!-- 按钮 -->
+                <div class="flex items-center gap-4">
+                    <button id="prev-btn" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                        上一步
+                    </button>
+                    
+                    <button id="next-btn" class="px-10 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-sm font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50">
+                        下一步
+                    </button>
+
+                    <button id="reset-btn" class="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="重置">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 算法阶段提示 -->
+        <div id="phase-indicator" class="mt-6 px-4 py-2 bg-white rounded-xl shadow-sm border border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+            阶段一: 压实非零元素
+        </div>
+    </div>
+
+    <script>
+        const initialNums = [0, 1, 0, 3, 12];
+        let history = [];
+        let currentStepIndex = 0;
+
+        function generateSteps(nums) {
+            let steps = [];
+            let arr = [...nums];
+            let slow = 0;
+            
+            // 初始状态
+            steps.push({
+                arr: [...arr],
+                slow, fast: 0,
+                msg: "算法开始。准备扫描非零元素。",
+                phase: "阶段一: 压实非零元素",
+                highlight: []
+            });
+
+            // 阶段一：移动非零
+            for (let fast = 0; fast < arr.length; fast++) {
+                let msg = `fast 检查索引 ${fast} (值为 ${arr[fast]})。`;
+                let highlight = [fast];
+
+                if (arr[fast] !== 0) {
+                    msg += `是非零！将其搬运到 slow (${slow}) 的位置。`;
+                    arr[slow] = arr[fast];
+                    highlight = [fast, slow];
+                    
+                    steps.push({
+                        arr: [...arr],
+                        slow, fast,
+                        msg,
+                        phase: "阶段一: 压实非零元素",
+                        highlight
+                    });
+                    
+                    slow++;
+                } else {
+                    msg += `是零，跳过。`;
+                    steps.push({
+                        arr: [...arr],
+                        slow, fast,
+                        msg,
+                        phase: "阶段一: 压实非零元素",
+                        highlight
+                    });
+                }
+            }
+
+            // 阶段二：填充零
+            for (let i = slow; i < arr.length; i++) {
+                arr[i] = 0;
+                steps.push({
+                    arr: [...arr],
+                    slow, fast: arr.length - 1,
+                    msg: `阶段二：将位置 ${i} 补回零。`,
+                    phase: "阶段二: 补齐剩余的零",
+                    highlight: [i]
+                });
+            }
+
+            steps.push({
+                arr: [...arr],
+                slow, fast: arr.length - 1,
+                msg: "完成！所有零已移至末尾。",
+                phase: "算法结束",
+                highlight: []
+            });
+
+            return steps;
+        }
+
+        function renderStep(step) {
+            const container = document.getElementById('array-container');
+            const logContent = document.getElementById('log-content');
+            const phaseIndicator = document.getElementById('phase-indicator');
+            container.innerHTML = '';
+
+            step.arr.forEach((val, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative flex flex-col items-center';
+                
+                const box = document.createElement('div');
+                const isHighlighted = step.highlight.includes(idx);
+                
+                // 样式：如果是0变浅，如果是非0变深
+                const bgClass = val === 0 ? 'bg-slate-100 text-slate-300' : 'bg-indigo-600 text-white shadow-md';
+                box.className = `element-node w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-lg font-black ${bgClass} ${isHighlighted ? 'ring-4 ring-yellow-400 scale-110 z-10' : ''}`;
+                box.innerText = val;
+
+                // 指针显示
+                const pointers = document.createElement('div');
+                pointers.className = 'absolute -bottom-8 flex flex-col items-center w-full';
+                
+                const dotClasses = [];
+                if (idx === step.slow) dotClasses.push('bg-blue-500');
+                if (idx === step.fast) dotClasses.push('bg-orange-500');
+
+                if (dotClasses.length > 0) {
+                    const dotsWrap = document.createElement('div');
+                    dotsWrap.className = 'flex gap-1 justify-center';
+                    dotClasses.forEach(color => {
+                        const d = document.createElement('div');
+                        d.className = `w-2.5 h-2.5 ${color} rounded-sm border-2 border-white shadow-sm`;
+                        dotsWrap.appendChild(d);
+                    });
+                    pointers.appendChild(dotsWrap);
+                }
+
+                wrapper.appendChild(box);
+                wrapper.appendChild(pointers);
+                container.appendChild(wrapper);
+            });
+
+            logContent.innerText = step.msg;
+            phaseIndicator.innerText = step.phase;
+            
+            document.getElementById('prev-btn').disabled = currentStepIndex === 0;
+            document.getElementById('next-btn').disabled = currentStepIndex === history.length - 1;
+        }
+
+        function init() {
+            history = generateSteps(initialNums);
+            currentStepIndex = 0;
+            renderStep(history[currentStepIndex]);
+        }
+
+        document.getElementById('next-btn').onclick = () => {
+            if (currentStepIndex < history.length - 1) {
+                currentStepIndex++;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('reset-btn').onclick = init;
+
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三指针颜色分类可视化 - 精简版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bar-transition {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .pointer-marker {
+            transition: all 0.3s ease;
+        }
+        .bg-color-0 { background-color: #ef4444; } /* Red */
+        .bg-color-1 { background-color: #f8fafc; border: 2px solid #e2e8f0; } /* White/Light Grey */
+        .bg-color-2 { background-color: #3b82f6; } /* Blue */
+        
+        /* 居中核心布局 */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f1f5f9;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="max-w-3xl w-full mx-auto p-4 flex flex-col items-center">
+        <!-- 主卡片容器 -->
+        <div class="w-full bg-white rounded-3xl shadow-2xl p-6 md:p-8 border border-slate-200">
+            <header class="text-center mb-6">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">三指针颜色分类可视化</h1>
+                <div class="inline-block mt-2 px-3 py-1 bg-slate-100 rounded-full text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                    Test Case: [2, 0, 1, 2, 0, 0, 2, 1]
+                </div>
+            </header>
+            
+            <!-- 数组可视化区域 -->
+            <div id="array-container" class="relative flex justify-center items-end gap-1.5 h-32 mb-12 px-2">
+                <!-- JS 动态生成 -->
+            </div>
+
+            <!-- 状态信息 -->
+            <div id="status-box" class="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100 min-h-[70px] flex items-center justify-center text-center">
+                <p id="log-content" class="text-sm text-slate-600 font-medium leading-relaxed"></p>
+            </div>
+
+            <!-- 交互控制 -->
+            <div class="flex flex-col items-center gap-6">
+                <!-- 指针标识图例 -->
+                <div class="flex justify-center gap-4 text-[10px] font-bold uppercase tracking-wider">
+                    <div class="flex items-center gap-1.5 text-green-600">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span> left
+                    </div>
+                    <div class="flex items-center gap-1.5 text-yellow-600">
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full"></span> curr
+                    </div>
+                    <div class="flex items-center gap-1.5 text-purple-600">
+                        <span class="w-2 h-2 bg-purple-500 rounded-full"></span> right
+                    </div>
+                </div>
+
+                <!-- 动作按钮 -->
+                <div class="flex items-center gap-4">
+                    <button id="prev-btn" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                        上一步
+                    </button>
+                    
+                    <button id="next-btn" class="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-indigo-100 active:scale-95 disabled:opacity-50">
+                        下一步
+                    </button>
+
+                    <button id="reset-btn" class="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="重置">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部提示 -->
+        <div class="mt-6 flex gap-3">
+            <div class="px-3 py-1.5 bg-red-500 rounded-lg text-white text-[10px] font-bold">RED: 0</div>
+            <div class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 text-[10px] font-bold">WHITE: 1</div>
+            <div class="px-3 py-1.5 bg-blue-500 rounded-lg text-white text-[10px] font-bold">BLUE: 2</div>
+        </div>
+    </div>
+
+    <script>
+        const initialNums = [2, 0, 1, 2, 0, 0, 2, 1];
+        let history = [];
+        let currentStepIndex = 0;
+
+        function generateSteps(nums) {
+            let steps = [];
+            let arr = [...nums];
+            let left = 0, right = arr.length - 1, curr = 0;
+
+            steps.push({
+                arr: [...arr],
+                left, right, curr,
+                msg: "算法准备绪。left 指向开头，right 指向末尾。",
+                highlight: []
+            });
+
+            while (curr <= right) {
+                let currentVal = arr[curr];
+                let msg = `处理索引 ${curr} (值为 ${currentVal})。`;
+                let highlight = [curr];
+
+                if (currentVal === 0) {
+                    msg += `遇到 0，将其与 left 交换。0 已归位，left 和 curr 右移。`;
+                    highlight = [curr, left];
+                    [arr[curr], arr[left]] = [arr[left], arr[curr]];
+                    left++;
+                    curr++;
+                } else if (currentVal === 2) {
+                    msg += `遇到 2，将其与 right 交换。2 已归位，right 左移。`;
+                    highlight = [curr, right];
+                    [arr[curr], arr[right]] = [arr[right], arr[curr]];
+                    right--;
+                } else {
+                    msg += `遇到 1，无需操作，curr 右移。`;
+                    curr++;
+                }
+
+                steps.push({
+                    arr: [...arr],
+                    left, right, curr,
+                    msg,
+                    highlight
+                });
+            }
+
+            steps.push({
+                arr: [...arr],
+                left, right, curr,
+                msg: "排序圆满完成！✨",
+                highlight: []
+            });
+
+            return steps;
+        }
+
+        function renderStep(step) {
+            const container = document.getElementById('array-container');
+            const logContent = document.getElementById('log-content');
+            container.innerHTML = '';
+
+            step.arr.forEach((val, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative flex flex-col items-center';
+                
+                const bar = document.createElement('div');
+                const isHighlighted = step.highlight.includes(idx);
+                bar.className = `bar-transition w-8 sm:w-10 h-16 rounded-xl flex items-center justify-center text-sm font-black shadow-sm bg-color-${val} ${isHighlighted ? 'ring-2 ring-yellow-400 z-10 scale-110 shadow-md' : 'opacity-90'}`;
+                bar.innerText = val;
+                
+                if(val === 1) bar.classList.add('text-slate-500');
+                else bar.classList.add('text-white');
+
+                const pointers = document.createElement('div');
+                pointers.className = 'absolute -bottom-8 flex flex-col items-center w-full';
+                
+                const dotClasses = [];
+                if (idx === step.left) dotClasses.push('bg-green-500');
+                if (idx === step.curr) dotClasses.push('bg-yellow-500');
+                if (idx === step.right) dotClasses.push('bg-purple-500');
+
+                if (dotClasses.length > 0) {
+                    const dotsWrap = document.createElement('div');
+                    dotsWrap.className = 'flex gap-0.5 justify-center';
+                    dotClasses.forEach(color => {
+                        const d = document.createElement('div');
+                        d.className = `w-2 h-2 ${color} rounded-full border border-white shadow-sm pointer-marker`;
+                        dotsWrap.appendChild(d);
+                    });
+                    pointers.appendChild(dotsWrap);
+                }
+
+                wrapper.appendChild(bar);
+                wrapper.appendChild(pointers);
+                container.appendChild(wrapper);
+            });
+
+            logContent.innerText = step.msg;
+            
+            document.getElementById('prev-btn').disabled = currentStepIndex === 0;
+            document.getElementById('next-btn').disabled = currentStepIndex === history.length - 1;
+        }
+
+        function init() {
+            history = generateSteps(initialNums);
+            currentStepIndex = 0;
+            renderStep(history[currentStepIndex]);
+        }
+
+        document.getElementById('next-btn').onclick = () => {
+            if (currentStepIndex < history.length - 1) {
+                currentStepIndex++;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderStep(history[currentStepIndex]);
+            }
+        };
+
+        document.getElementById('reset-btn').onclick = init;
+
+        window.onload = init;
+    </script>
+</body>
+</html>

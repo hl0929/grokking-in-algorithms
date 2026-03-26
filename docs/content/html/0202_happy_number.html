@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Number Visualizer (Step)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .node-enter { animation: scaleIn 0.4s ease-out forwards; }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.8) translateX(-10px); }
+            to { opacity: 1; transform: scale(1) translateX(0); }
+        }
+
+        .loop-line {
+            stroke-dasharray: 5;
+            animation: dash 1s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -10; }
+        }
+
+        .happy-glow { box-shadow: 0 0 15px rgba(34, 197, 94, 0.5); border-color: #22c55e !important; }
+        .sad-glow { box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); border-color: #ef4444 !important; }
+    </style>
+</head>
+<body class="bg-gray-50 p-2 m-0 font-sans">
+
+    <div class="flex flex-col w-full max-w-2xl mx-auto bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden mb-4" style="min-height: 400px;">
+        
+        <!-- 头部 -->
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center shrink-0">
+            <span class="text-[10px] font-bold text-gray-500 uppercase">Happy Number Detection</span>
+            <div class="flex gap-2 items-center">
+                <input type="number" id="num-input" value="19" class="w-16 px-1 py-0.5 text-xs border rounded outline-none focus:border-blue-400" />
+                <button id="btn-start" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded hover:bg-blue-700">开始/重置</button>
+                <button id="btn-next" class="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded hover:bg-emerald-700 disabled:opacity-30" disabled>下一步</button>
+            </div>
+        </div>
+
+        <!-- 可视化展示区 (支持横向增长) -->
+        <div class="flex-1 p-6 overflow-auto" id="main-view">
+            <div id="path-container" class="flex flex-row flex-wrap items-center gap-4 relative">
+                <!-- 数字节点将在此横向动态生成 -->
+            </div>
+        </div>
+
+        <!-- 数据面板 -->
+        <div class="p-3 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-2 shrink-0">
+            <div class="bg-white p-2 rounded border border-gray-200">
+                <p class="text-[8px] text-gray-400 uppercase mb-1">已访问集合 (HashSet)</p>
+                <div id="seen-set" class="flex flex-wrap gap-1 min-h-[20px] text-[10px] font-mono text-slate-600">
+                    <span class="text-gray-300 italic">空</span>
+                </div>
+            </div>
+            <div class="bg-white p-2 rounded border border-gray-200 flex flex-col justify-center items-center">
+                <p class="text-[8px] text-gray-400 uppercase mb-1">结果状态</p>
+                <div id="status-text" class="text-xs font-bold text-gray-400">等待输入...</div>
+            </div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="bg-slate-900 p-2 font-mono text-[9px] text-slate-400 h-20 overflow-y-auto" id="logs">
+            <div>> 输入一个正整数并点击开始。</div>
+        </div>
+    </div>
+
+<script>
+    let seen = new Set();
+    let current = 0;
+    let step = 0;
+    let isFinished = false;
+
+    function getNext(n) {
+        const str = n.toString();
+        let total = 0;
+        let details = [];
+        for (let char of str) {
+            const digit = parseInt(char);
+            const sq = digit * digit;
+            total += sq;
+            details.push(`${digit}²`);
+        }
+        return { value: total, calculation: details.join(' + ') + ' = ' + total };
+    }
+
+    function reset() {
+        const inputVal = parseInt(document.getElementById('num-input').value);
+        if (isNaN(inputVal) || inputVal <= 0) {
+            alert("请输入正整数");
+            return;
+        }
+
+        // 重置变量
+        seen = new Set();
+        current = inputVal;
+        step = 0;
+        isFinished = false;
+
+        // 重置 UI
+        document.getElementById('path-container').innerHTML = '';
+        document.getElementById('seen-set').innerHTML = '';
+        document.getElementById('logs').innerHTML = '';
+        document.getElementById('status-text').innerText = '进行中...';
+        document.getElementById('status-text').className = 'text-xs font-bold text-blue-500';
+        document.getElementById('btn-next').disabled = false;
+
+        log(`开始检测数字: ${current}`);
+        
+        // 渲染第一个节点
+        renderStep();
+    }
+
+    function nextStep() {
+        if (isFinished) return;
+
+        // 1. 获取下一个数字的计算结果
+        const nextObj = getNext(current);
+        log(`计算: ${nextObj.calculation}`);
+
+        // 2. 画箭头 (横向箭头)
+        const arrow = document.createElement('div');
+        arrow.className = 'text-gray-300 text-sm font-bold';
+        arrow.innerHTML = '→';
+        document.getElementById('path-container').appendChild(arrow);
+
+        // 3. 更新数值
+        current = nextObj.value;
+        step++;
+
+        // 4. 渲染新节点并判断逻辑
+        renderStep();
+    }
+
+    function renderStep() {
+        log(`步骤 ${step}: 当前数字为 ${current}`);
+        
+        const node = createNode(current);
+        document.getElementById('path-container').appendChild(node);
+        
+        // 自动滚动到右侧/底部
+        const view = document.getElementById('main-view');
+        setTimeout(() => {
+            view.scrollTo({ 
+                top: view.scrollHeight, 
+                left: view.scrollWidth, 
+                behavior: 'smooth' 
+            });
+        }, 50);
+
+        // 判断是否为 1
+        if (current === 1) {
+            node.classList.add('happy-glow');
+            log(`恭喜！到达 1，它是快乐数！`, 'text-green-400');
+            updateStatus('HAPPY NUMBER! 🎉', 'text-green-600');
+            finish();
+            return;
+        }
+
+        // 判断是否在集合中（循环）
+        if (seen.has(current)) {
+            node.classList.add('sad-glow');
+            log(`发现循环！数字 ${current} 已出现过。`, 'text-red-400');
+            updateStatus('NOT HAPPY (Cycle) ❌', 'text-red-600');
+            highlightCycle(current);
+            finish();
+            return;
+        }
+
+        // 加入集合
+        seen.add(current);
+        updateSetView(seen);
+
+        if (step > 50) {
+            log("检测步数过多，停止。");
+            finish();
+        }
+    }
+
+    function finish() {
+        isFinished = true;
+        document.getElementById('btn-next').disabled = true;
+    }
+
+    function createNode(val) {
+        const div = document.createElement('div');
+        div.className = 'node-enter bg-white border-2 border-slate-200 rounded-full w-12 h-12 flex-shrink-0 flex items-center justify-center font-mono font-bold text-slate-700 text-sm z-10 shadow-sm';
+        div.innerText = val;
+        div.dataset.val = val;
+        return div;
+    }
+
+    function log(msg, colorClass = '') {
+        const l = document.getElementById('logs');
+        const div = document.createElement('div');
+        div.className = colorClass;
+        div.innerText = `> ${msg}`;
+        l.appendChild(div);
+        l.scrollTop = l.scrollHeight;
+    }
+
+    function updateSetView(s) {
+        const container = document.getElementById('seen-set');
+        if (s.size === 0) {
+            container.innerHTML = '<span class="text-gray-300 italic">空</span>';
+            return;
+        }
+        container.innerHTML = Array.from(s).map(n => 
+            `<span class="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">${n}</span>`
+        ).join('');
+    }
+
+    function updateStatus(text, colorClass) {
+        const st = document.getElementById('status-text');
+        st.innerText = text;
+        st.className = `text-xs font-bold ${colorClass}`;
+    }
+
+    function highlightCycle(val) {
+        const nodes = document.querySelectorAll(`[data-val="${val}"]`);
+        nodes.forEach(n => {
+            n.classList.add('border-red-500', 'text-red-600', 'bg-red-50');
+        });
+    }
+
+    document.getElementById('btn-start').onclick = reset;
+    document.getElementById('btn-next').onclick = nextStep;
+</script>
+</body>
+</html>
