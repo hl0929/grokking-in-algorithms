@@ -53,7 +53,7 @@
 
 [0560. 和为 K 的子数组](./content/0560_subarray_sum_equals_k.md)
 
-
+[0567. 字符串的排列](./content/0567_permutation_in_string.md)
 
 
 

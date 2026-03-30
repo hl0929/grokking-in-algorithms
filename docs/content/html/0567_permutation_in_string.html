@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字符串的排列可视化 - 滑动窗口</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .char-box { transition: all 0.2s ease; }
+        .window-highlight { border-bottom: 3px solid #10b981; background-color: rgba(16, 185, 129, 0.1); }
+        .pointer { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .need-card { transition: all 0.3s; }
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 18px; line-height: 1.4; border-left: 2px solid transparent; white-space: pre; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left: 2px solid #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 2px; color: #60a5fa; font-size: 9px; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen overflow-hidden font-sans p-2">
+    <div class="max-w-6xl mx-auto h-full flex flex-col">
+        <!-- 顶部：展示区 -->
+        <div class="bg-white rounded-t-lg shadow-sm p-4 mb-1 relative border-b">
+            <h2 class="text-sm font-bold text-slate-700 mb-2 text-center">LeetCode 567. 字符串的排列 (滑动窗口)</h2>
+            <div class="text-center text-xs text-slate-500 mb-6">目标 s1: <span class="font-mono font-bold text-blue-600" id="target-s1"></span></div>
+            
+            <div class="relative py-4">
+                <div id="string-container" class="flex justify-center gap-1"></div>
+                <!-- 指针 -->
+                <div id="left-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
+                    <span class="text-emerald-600 text-[10px] font-bold">left</span>
+                    <div class="w-0.5 h-4 bg-emerald-500"></div>
+                </div>
+                <div id="right-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
+                    <span class="text-rose-600 text-[10px] font-bold">right</span>
+                    <div class="w-0.5 h-4 bg-rose-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：核心交互区 -->
+        <div class="flex flex-1 gap-2 min-h-0">
+            <!-- 左侧：状态 -->
+            <div class="w-1/3 flex flex-col gap-2">
+                <div class="bg-white p-3 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+                    <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">Need Array (字符额度)</div>
+                    <div class="grid grid-cols-4 gap-1 overflow-y-auto pr-1" id="need-panel"></div>
+                    
+                    <div class="mt-4 pt-2 border-t">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">窗口长度:</span>
+                            <span id="curr-len" class="font-mono font-bold text-blue-600 text-sm">0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">目标长度 (len(s1)):</span>
+                            <span id="target-len" class="font-mono font-bold text-slate-600 text-sm">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 控制按钮 -->
+                <div class="bg-white p-2 rounded-lg shadow-sm flex flex-wrap justify-center gap-1">
+                    <button id="btn-prev" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100 disabled:opacity-50">上一步</button>
+                    <button id="btn-play" class="px-3 py-1 text-xs bg-emerald-600 text-white rounded-full hover:bg-emerald-700 min-w-[70px]">播放</button>
+                    <button id="btn-next" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100">下一步</button>
+                    <button id="btn-reset" class="px-2 py-1 text-xs bg-slate-100 rounded hover:bg-slate-200">重置</button>
+                </div>
+
+                <div id="log-message" class="bg-emerald-50 p-3 rounded-lg border-l-4 border-emerald-400 text-emerald-800 text-[11px] leading-tight min-h-[60px] flex items-center shadow-sm">
+                    点击“下一步”开始执行代码。
+                </div>
+            </div>
+
+            <!-- 右侧：代码追踪 -->
+            <div class="w-2/3 bg-slate-900 rounded-lg p-3 shadow-inner flex flex-col">
+                <div class="text-slate-500 text-[9px] mb-1 uppercase font-bold tracking-widest border-b border-slate-700 flex justify-between">
+                    <span>Python Code Trace</span>
+                    <span id="step-counter">Step: 0/0</span>
+                </div>
+                <pre class="text-slate-300 text-[11px] font-mono flex-1 overflow-y-auto pt-1">
+<span id="L0" class="code-line">def check_inclusion(s1, s2):</span>
+<span id="L1" class="code-line">    if not s1 or not s2: return False</span>
+<span id="L2" class="code-line">    need = [0] * 26</span>
+<span id="L3" class="code-line">    for ch in s1: need[ord(ch)-ord('a')] += 1</span>
+<span id="L4" class="code-line">    left = 0</span>
+<span id="L5" class="code-line">    for right in range(len(s2)):</span>
+<span id="L6" class="code-line">        need[ord(s2[right]) - ord("a")] -= 1</span>
+<span id="L7" class="code-line">        while need[ord(s2[right]) - ord("a")] < 0:</span>
+<span id="L8" class="code-line">            need[ord(s2[left]) - ord("a")] += 1</span>
+<span id="L9" class="code-line">            left += 1</span>
+<span id="L10" class="code-line">        if right - left + 1 == len(s1):</span>
+<span id="LineMatch" class="code-line">            return True</span>
+<span id="L11" class="code-line">    return False</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const s1 = "ab";
+        const s2 = "eidbaoo";
+        let steps = [];
+        let currentStepIndex = -1;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generateSteps() {
+            let res = [];
+            let need = new Array(26).fill(0);
+
+            // Step 0: Start of function
+            res.push({ left: 0, right: -1, need: [...need], msg: "程序开始执行：check_inclusion(s1, s2)", line: "L0", showPointers: false });
+
+            // Step 1: Input Check
+            res.push({ left: 0, right: -1, need: [...need], msg: "检查输入字符串是否为空", line: "L1", showPointers: false });
+
+            // Step 2: Initialize need array
+            res.push({ left: 0, right: -1, need: [...need], msg: "初始化长度为 26 的 need 数组，存储字符频率", line: "L2", showPointers: false });
+
+            // Step 3: Populate need array from s1
+            for (let ch of s1) need[ch.charCodeAt(0) - 97]++;
+            res.push({ left: 0, right: -1, need: [...need], msg: `遍历 s1="${s1}"，构建目标频率表`, line: "L3", showPointers: false });
+
+            // Step 4: Initialize left pointer
+            res.push({ left: 0, right: -1, need: [...need], msg: "初始化左指针 left = 0", line: "L4", showPointers: true });
+
+            let left = 0;
+            for (let right = 0; right < s2.length; right++) {
+                let rCh = s2[right];
+                let rIdx = rCh.charCodeAt(0) - 97;
+
+                res.push({ left, right, need: [...need], msg: `进入循环，右指针 right = ${right} (字符 '${rCh}')`, line: "L5", showPointers: true });
+
+                need[rIdx]--;
+                res.push({ left, right, need: [...need], msg: `消耗计数：need['${rCh}'] 减 1，当前值为 ${need[rIdx]}`, line: "L6", showPointers: true });
+
+                while (need[rIdx] < 0) {
+                    let lCh = s2[left];
+                    let lIdx = lCh.charCodeAt(0) - 97;
+                    res.push({ left, right, need: [...need], msg: `need['${rCh}'] < 0，说明当前窗口包含非 s1 字符或该字符超量`, line: "L7", showPointers: true });
+                    
+                    need[lIdx]++;
+                    res.push({ left, right, need: [...need], msg: `收缩左窗：恢复 s2[left] ('${lCh}') 的计数`, line: "L8", showPointers: true });
+                    
+                    left++;
+                    res.push({ left, right, need: [...need], msg: `左指针 left 后移至 ${left}`, line: "L9", showPointers: true });
+                }
+
+                res.push({ left, right, need: [...need], msg: `检查当前窗口长度 ${right - left + 1} 是否等于 s1 长度 ${s1.length}`, line: "L10", showPointers: true });
+                if (right - left + 1 === s1.length) {
+                    res.push({ left, right, need: [...need], msg: `匹配成功！窗口 "${s2.substring(left, right+1)}" 是 s1 的一个排列`, line: "LineMatch", showPointers: true });
+                    return res;
+                }
+            }
+            res.push({ left, right: s2.length - 1, need: [...need], msg: "未找到满足条件的子串，返回 False", line: "L11", showPointers: true });
+            return res;
+        }
+
+        function initUI() {
+            document.getElementById('target-s1').innerText = `"${s1}"`;
+            document.getElementById('target-len').innerText = s1.length;
+
+            const container = document.getElementById('string-container');
+            container.innerHTML = '';
+            s2.split('').forEach((char, i) => {
+                const div = document.createElement('div');
+                div.id = `char-${i}`;
+                div.className = 'char-box w-7 h-9 flex items-center justify-center border text-sm font-bold bg-white shadow-sm rounded-sm';
+                div.innerText = char;
+                container.appendChild(div);
+            });
+
+            const needPanel = document.getElementById('need-panel');
+            needPanel.innerHTML = '';
+            const relevantChars = Array.from(new Set((s1 + s2).split(''))).sort();
+            relevantChars.forEach(char => {
+                const div = document.createElement('div');
+                div.id = `need-card-${char}`;
+                div.className = 'need-card flex flex-col items-center bg-white border rounded p-1 shadow-sm';
+                div.innerHTML = `<span class="text-[9px] text-slate-400 font-bold">${char}</span> <span id="need-count-${char}" class="text-xs font-mono font-bold">0</span>`;
+                needPanel.appendChild(div);
+            });
+
+            steps = generateSteps();
+            updateStep(0);
+        }
+
+        function updateStep(index) {
+            if (index < 0 || index >= steps.length) return;
+            currentStepIndex = index;
+            const step = steps[index];
+
+            const boxes = document.querySelectorAll('.char-box');
+            const leftPtr = document.getElementById('left-pointer');
+            const rightPtr = document.getElementById('right-pointer');
+
+            if (boxes.length > 0) {
+                const w = boxes[0].offsetWidth + 4; 
+                const startX = boxes[0].offsetLeft;
+                
+                if (step.showPointers) {
+                    leftPtr.style.opacity = 1;
+                    leftPtr.style.left = `${startX + step.left * w + 14}px`;
+                    
+                    if (step.right >= 0) {
+                        rightPtr.style.opacity = 1;
+                        rightPtr.style.left = `${startX + step.right * w + 14}px`;
+                    } else {
+                        rightPtr.style.opacity = 0;
+                    }
+                } else {
+                    leftPtr.style.opacity = 0;
+                    rightPtr.style.opacity = 0;
+                }
+            }
+
+            boxes.forEach((el, i) => {
+                const inWindow = step.showPointers && i >= step.left && i <= step.right;
+                el.className = 'char-box w-7 h-9 flex items-center justify-center border text-sm font-bold shadow-sm rounded-sm ' + 
+                    (inWindow ? 'window-highlight border-emerald-300 bg-emerald-50 text-emerald-700' : 'bg-white text-slate-700 border-slate-200');
+            });
+
+            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+            for(let i=0; i<26; i++) {
+                const char = alphabet[i];
+                const count = step.need[i];
+                const el = document.getElementById(`need-count-${char}`);
+                if (el) {
+                    el.innerText = count;
+                    el.className = `text-xs font-mono font-bold ${count < 0 ? 'text-rose-500' : (count > 0 ? 'text-blue-500' : 'text-slate-400')}`;
+                    const card = document.getElementById(`need-card-${char}`);
+                    if (count !== 0) card.classList.add('border-slate-300', 'bg-slate-50');
+                    else card.classList.remove('border-slate-300', 'bg-slate-50');
+                }
+            }
+
+            document.getElementById('curr-len').innerText = (step.showPointers && step.right >= 0) ? (step.right - step.left + 1) : 0;
+            document.getElementById('log-message').innerText = step.msg;
+            document.getElementById('step-counter').innerText = `步数: ${index}/${steps.length - 1}`;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            const activeLine = document.getElementById(step.line);
+            if (activeLine) activeLine.classList.add('code-active');
+
+            document.getElementById('btn-prev').disabled = index === 0;
+            document.getElementById('btn-next').disabled = index === steps.length - 1;
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex + 1); };
+        document.getElementById('btn-prev').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex - 1); };
+        document.getElementById('btn-reset').onclick = () => { stopAutoPlay(); updateStep(0); };
+        document.getElementById('btn-play').onclick = () => isPlaying ? stopAutoPlay() : startAutoPlay();
+
+        function startAutoPlay() {
+            if (currentStepIndex === steps.length - 1) updateStep(0);
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停";
+            document.getElementById('btn-play').classList.replace('bg-emerald-600', 'bg-orange-600');
+            playInterval = setInterval(() => {
+                if (currentStepIndex < steps.length - 1) updateStep(currentStepIndex + 1);
+                else stopAutoPlay();
+            }, 800);
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            if (playInterval) clearInterval(playInterval);
+            document.getElementById('btn-play').innerText = "播放";
+            document.getElementById('btn-play').classList.replace('bg-orange-600', 'bg-emerald-600');
+        }
+
+        window.addEventListener('load', initUI);
+    </script>
+</body>
+</html>

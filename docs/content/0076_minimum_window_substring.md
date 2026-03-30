@@ -8,27 +8,28 @@ def min_window(s, t):
     if not s or not t:
         return ""
     need = dict()
-    for c in t:
-        need[c] = need.get(c, 0) + 1
+    for ch in t:
+        need[ch] = need.get(ch, 0) + 1
     missing = len(t)
     left = start = end = 0
-    for right, c in enumerate(s, 1):
-        if need.get(c, 0) > 0:
+    for right in range(len(s)):
+        ch = s[right]
+        if need.get(ch, 0) > 0:
             missing -= 1
-        need[c] = need.get(c, 0) - 1
+        need[ch] = need.get(ch, 0) - 1
         if missing == 0:
             while left < right and need[s[left]] < 0:
                 need[s[left]] += 1
                 left += 1
-            if end == 0 or right - left < end - start:
-                start, end = left, right
+            if end == 0 or right - left + 1 < end - start:
+                start, end = left, right + 1
     return s[start:end]
+    
 
-
-s = "ADOBECODEBANC"
-t = "ABC"
+s = "ADOBECODEBANC" 
+t = "ABC" # BANC
 result = min_window(s, t)
-print(result)  
+print(result)
 ```
 
 这道题目（LeetCode 76. 最小覆盖子串）是滑动窗口算法中的“大 Boss”。如果说前面的“删除重复项”是搬运工，那这道题就是一个 **“伸缩自如的捕鱼网”**。

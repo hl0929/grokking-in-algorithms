@@ -22,15 +22,15 @@
     <div class="max-w-6xl mx-auto h-full flex flex-col">
         <!-- 顶部：字符串展示区 -->
         <div class="bg-white rounded-t-lg shadow-sm p-3 mb-1 relative border-b">
-            <h2 class="text-sm font-bold text-slate-700 mb-6 text-center">滑动窗口：最小覆盖子串 (Python 实现)</h2>
+            <h2 class="text-sm font-bold text-slate-700 mb-6 text-center">滑动窗口：最小覆盖子串 (Python 逻辑实现)</h2>
             <div class="relative py-4">
                 <div id="string-container" class="flex justify-center gap-0.5"></div>
                 <!-- 指针 -->
-                <div id="left-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3">
+                <div id="left-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
                     <span class="text-blue-600 text-[10px] font-bold">left</span>
                     <div class="w-0.5 h-4 bg-blue-500"></div>
                 </div>
-                <div id="right-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3">
+                <div id="right-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
                     <span class="text-red-600 text-[10px] font-bold">right</span>
                     <div class="w-0.5 h-4 bg-red-500"></div>
                 </div>
@@ -68,9 +68,11 @@
                 </div>
                 <pre class="text-slate-300 text-[11px] font-mono flex-1 overflow-y-auto pt-1">
 <span id="L0" class="code-line">def min_window(s, t):</span>
-<span id="L1" class="code-line">    if not s or not t: return ""</span>
-<span id="L2" class="code-line">    need = {}</span>
-<span id="L3" class="code-line">    for ch in t: need[ch] = need.get(ch, 0) + 1</span>
+<span id="L1" class="code-line">    if not s or not t:</span>
+<span id="L1_ret" class="code-line">        return ""</span>
+<span id="L2" class="code-line">    need = dict()</span>
+<span id="L3" class="code-line">    for ch in t:</span>
+<span id="L3_loop" class="code-line">        need[ch] = need.get(ch, 0) + 1</span>
 <span id="L4" class="code-line">    missing = len(t)</span>
 <span id="L5" class="code-line">    left = start = end = 0</span>
 <span id="L6" class="code-line">    for right in range(len(s)):</span>
@@ -82,7 +84,7 @@
 <span id="L12" class="code-line">            while left < right and need[s[left]] < 0:</span>
 <span id="L13" class="code-line">                need[s[left]] += 1</span>
 <span id="L14" class="code-line">                left += 1</span>
-<span id="L15" class="code-line">            if end == 0 or (right + 1 - left) < end - start:</span>
+<span id="L15" class="code-line">            if end == 0 or right - left + 1 < end - start:</span>
 <span id="L16" class="code-line">                start, end = left, right + 1</span>
 <span id="L17" class="code-line">    return s[start:end]</span></pre>
             </div>
@@ -100,47 +102,65 @@
         function generateSteps() {
             let res = [];
             let need = {};
-            for (let c of t) need[c] = (need[c] || 0) + 1;
             
-            // Step 0: Initialization
-            res.push({ left: 0, right: -1, need: {...need}, missing: t.length, start: 0, end: 0, msg: "初始化 need 哈希表和 missing 计数", line: "L4" });
+            // L0: Start
+            res.push({ left: 0, right: -1, need: {}, missing: 0, start: 0, end: 0, msg: "函数开始执行", line: "L0", showPointers: false });
             
+            // L1: Check empty
+            res.push({ left: 0, right: -1, need: {}, missing: 0, start: 0, end: 0, msg: "检查 s 或 t 是否为空", line: "L1", showPointers: false });
+            
+            // L2: Initialize need dict
+            res.push({ left: 0, right: -1, need: {}, missing: 0, start: 0, end: 0, msg: "初始化 need 字典", line: "L2", showPointers: false });
+
+            // L3: Populate need
+            for (let ch of t) {
+                need[ch] = (need[ch] || 0) + 1;
+                res.push({ left: 0, right: -1, need: {...need}, missing: 0, start: 0, end: 0, msg: `统计 t 中的字符: '${ch}'`, line: "L3_loop", showPointers: false });
+            }
+
+            // L4: missing
             let missing = t.length;
+            res.push({ left: 0, right: -1, need: {...need}, missing, start: 0, end: 0, msg: `设置 missing = len(t) = ${missing}`, line: "L4", showPointers: false });
+
+            // L5: pointers
             let left = 0, start = 0, end = 0;
+            res.push({ left, right: -1, need: {...need}, missing, start, end, msg: "初始化指针: left, start, end = 0", line: "L5", showPointers: true });
 
             for (let right = 0; right < s.length; right++) {
                 let ch = s[right];
-                res.push({ left, right, need: {...need}, missing, start, end, msg: `遍历右边界: s[${right}] = '${ch}'`, line: "L7" });
+                res.push({ left, right, need: {...need}, missing, start, end, msg: `遍历右边界: s[${right}] = '${ch}'`, line: "L6", showPointers: true });
 
-                res.push({ left, right, need: {...need}, missing, start, end, msg: `检查 '${ch}' 是否在 need 中且 > 0`, line: "L8" });
+                res.push({ left, right, need: {...need}, missing, start, end, msg: `获取字符 '${ch}'`, line: "L7", showPointers: true });
+                
+                res.push({ left, right, need: {...need}, missing, start, end, msg: `检查 need.get('${ch}', 0) > 0`, line: "L8", showPointers: true });
                 if ((need[ch] || 0) > 0) {
                     missing--;
-                    res.push({ left, right, need: {...need}, missing, start, end, msg: `匹配到字符 '${ch}'，missing 减 1`, line: "L9" });
+                    res.push({ left, right, need: {...need}, missing, start, end, msg: `匹配到目标字符，missing 减 1，剩余: ${missing}`, line: "L9", showPointers: true });
                 }
 
                 need[ch] = (need[ch] || 0) - 1;
-                res.push({ left, right, need: {...need}, missing, start, end, msg: `更新 need['${ch}'] = ${need[ch]}`, line: "L10" });
+                res.push({ left, right, need: {...need}, missing, start, end, msg: `更新 need['${ch}'] = ${need[ch]}`, line: "L10", showPointers: true });
 
-                res.push({ left, right, need: {...need}, missing, start, end, msg: `检查 missing 是否为 0`, line: "L11" });
+                res.push({ left, right, need: {...need}, missing, start, end, msg: `检查是否满足完全覆盖 (missing == 0)`, line: "L11", showPointers: true });
                 if (missing === 0) {
-                    res.push({ left, right, need: {...need}, missing, start, end, msg: `完全覆盖！尝试收缩左边界`, line: "L12" });
+                    res.push({ left, right, need: {...need}, missing, start, end, msg: `完全覆盖！开始收缩左边界`, line: "L12", showPointers: true });
                     
                     while (left < right && (need[s[left]] < 0)) {
                         let leftCh = s[left];
                         need[leftCh] += 1;
                         left++;
-                        res.push({ left, right, need: {...need}, missing, start, end, msg: `左移 left，恢复冗余字符 '${leftCh}' 的计数`, line: "L14" });
+                        res.push({ left, right, need: {...need}, missing, start, end, msg: `s[left] ('${leftCh}') 是多余的，恢复计数并移动 left`, line: "L14", showPointers: true });
                     }
 
-                    res.push({ left, right, need: {...need}, missing, start, end, msg: `判断当前窗口 [${left}, ${right+1}) 是否更短`, line: "L15" });
-                    if (end === 0 || (right + 1 - left) < (end - start)) {
+                    res.push({ left, right, need: {...need}, missing, start, end, msg: `比较当前窗口 [${left}, ${right+1}) 是否更小`, line: "L15", showPointers: true });
+                    if (end === 0 || (right - left + 1) < (end - start)) {
                         start = left;
                         end = right + 1;
-                        res.push({ left, right, need: {...need}, missing, start, end, msg: `找到更小的覆盖子串: "${s.substring(start, end)}"`, line: "L16" });
+                        res.push({ left, right, need: {...need}, missing, start, end, msg: `更新最优解: "${s.substring(start, end)}"`, line: "L16", showPointers: true });
                     }
                 }
             }
-            res.push({ left, right: s.length - 1, need: {...need}, missing, start, end, msg: `遍历结束，返回最终结果`, line: "L17" });
+            res.push({ left, right: s.length - 1, need: {...need}, missing, start, end, msg: `遍历结束，返回最终结果`, line: "L17", showPointers: true });
             return res;
         }
 
@@ -174,21 +194,30 @@
             const step = steps[index];
 
             const boxes = document.querySelectorAll('.char-box');
+            const lPtr = document.getElementById('left-pointer');
+            const rPtr = document.getElementById('right-pointer');
+
             if (boxes.length > 0) {
                 const w = boxes[0].offsetWidth + 2; 
                 const startX = boxes[0].offsetLeft;
                 
-                // left 指针指向 left 索引的格子
-                document.getElementById('left-pointer').style.left = `${startX + step.left * w + 10}px`;
-                // right 指针指向 right 索引的格子（如果是初始状态 -1 则不显示或在最左）
-                const rightPos = step.right < 0 ? 0 : step.right;
-                document.getElementById('right-pointer').style.left = `${startX + rightPos * w + 10}px`;
-                document.getElementById('right-pointer').style.opacity = step.right < 0 ? 0 : 1;
+                if (step.showPointers) {
+                    lPtr.style.opacity = 1;
+                    lPtr.style.left = `${startX + step.left * w + 10}px`;
+                    if (step.right >= 0) {
+                        rPtr.style.opacity = 1;
+                        rPtr.style.left = `${startX + step.right * w + 10}px`;
+                    } else {
+                        rPtr.style.opacity = 0;
+                    }
+                } else {
+                    lPtr.style.opacity = 0;
+                    rPtr.style.opacity = 0;
+                }
             }
 
             boxes.forEach((el, i) => {
-                // 滑动窗口范围是 [left, right]
-                const inWindow = i >= step.left && i <= step.right;
+                const inWindow = step.showPointers && i >= step.left && i <= step.right;
                 el.className = 'char-box w-5 h-7 flex items-center justify-center border text-[11px] font-bold shadow-sm ' + 
                     (inWindow ? 'window-highlight border-blue-300 bg-blue-50 text-blue-700' : 'bg-white text-slate-700 border-slate-200');
             });
@@ -203,7 +232,7 @@
             document.getElementById('missing-val').innerText = step.missing;
             document.getElementById('result-val').innerText = step.end === 0 ? '""' : `"${s.substring(step.start, step.end)}"`;
             document.getElementById('log-message').innerText = step.msg;
-            document.getElementById('step-counter').innerText = `Step: ${index}/${steps.length - 1}`;
+            document.getElementById('step-counter').innerText = `步数: ${index}/${steps.length - 1}`;
 
             document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
             const activeLine = document.getElementById(step.line);
