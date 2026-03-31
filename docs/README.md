@@ -39,6 +39,8 @@
 
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
 
+[0239. 滑动窗口最大值](./content/0239_sliding_window_maximum.md)
+
 [0242. 有效的字母异位词](./content/0242_valid_anagram.md)
 
 [0283. 移动零](./content/0283_move_zeroes.md)
@@ -48,6 +50,8 @@
 [0406. 根据身高重建队列](./content/0406_queue_reconstruction_by_height.md)
 
 [0424. 替换后的最长重复字符](./content/0424_longest_repeating_character_replacement.md)
+
+[0438. 找到字符串中所有字母异位词](./content/0438_find_all_anagrams_in_a_string.md)
 
 [0448. 找到所有数组中消失的数字](./content/0448_find_all_numbers_disappeared_in_an_array.md)
 

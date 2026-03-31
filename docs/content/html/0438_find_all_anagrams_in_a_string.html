@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>找到字符串中所有字母异位词 - 可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .char-box { transition: all 0.2s ease; }
+        .window-highlight { border-bottom: 3px solid #8b5cf6; background-color: rgba(139, 92, 246, 0.1); }
+        .pointer { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 18px; line-height: 1.4; border-left: 2px solid transparent; white-space: pre; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left: 2px solid #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 2px; color: #60a5fa; font-size: 9px; }
+        .count-tag { font-family: monospace; font-weight: bold; }
+        .match-success { background-color: #10b981 !important; color: white !important; border-color: #059669 !important; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen overflow-hidden font-sans p-2">
+    <div class="max-w-6xl mx-auto h-full flex flex-col">
+        <!-- 顶部：字符串展示区 -->
+        <div class="bg-white rounded-t-lg shadow-sm p-3 mb-1 relative border-b">
+            <h2 class="text-sm font-bold text-slate-700 mb-6 text-center">LeetCode 438. 找到字符串中所有字母异位词</h2>
+            <div class="text-center text-xs text-slate-500 mb-6">
+                目标字符串 p: <span class="font-mono font-bold text-purple-600">"abc"</span>
+            </div>
+            
+            <div class="relative py-4">
+                <div id="string-container" class="flex justify-center gap-1"></div>
+                <!-- 指针 -->
+                <div id="left-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
+                    <span class="text-blue-600 text-[10px] font-bold">left</span>
+                    <div class="w-0.5 h-4 bg-blue-500"></div>
+                </div>
+                <div id="right-pointer" class="pointer absolute top-0 flex flex-col items-center w-6 -ml-3 opacity-0">
+                    <span class="text-rose-600 text-[10px] font-bold">right</span>
+                    <div class="w-0.5 h-4 bg-rose-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：核心交互区 -->
+        <div class="flex flex-1 gap-2 min-h-0">
+            <!-- 左侧：状态 -->
+            <div class="w-2/5 flex flex-col gap-2">
+                <div class="bg-white p-3 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">频率对比 (Window vs Need)</span>
+                        <div class="flex gap-2">
+                            <span class="text-[9px] flex items-center gap-1"><i class="w-2 h-2 bg-purple-100 border border-purple-300 rounded-sm"></i> Need</span>
+                            <span class="text-[9px] flex items-center gap-1"><i class="w-2 h-2 bg-blue-100 border border-blue-300 rounded-sm"></i> Window</span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-1 overflow-y-auto pr-1" id="comparison-panel"></div>
+                    
+                    <div class="mt-auto pt-2 border-t space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">valid (达成频率的字母种数):</span>
+                            <span id="valid-val" class="font-mono font-bold text-orange-600 text-sm">0 / 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">结果列表 res:</span>
+                            <span id="res-val" class="font-mono font-bold text-emerald-600 text-sm">[]</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-2 rounded-lg shadow-sm flex flex-wrap justify-center gap-1">
+                    <button id="btn-prev" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100 disabled:opacity-50">上一步</button>
+                    <button id="btn-play" class="px-3 py-1 text-xs bg-purple-600 text-white rounded-full hover:bg-purple-700 min-w-[70px]">播放</button>
+                    <button id="btn-next" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100">下一步</button>
+                    <button id="btn-reset" class="px-2 py-1 text-xs bg-slate-100 rounded hover:bg-slate-200">重置</button>
+                </div>
+
+                <div id="log-message" class="bg-purple-50 p-2 rounded-lg border-l-4 border-purple-400 text-purple-800 text-[11px] leading-tight min-h-[50px] flex items-center shadow-sm">
+                    点击“下一步”开始分析字符串。
+                </div>
+            </div>
+
+            <!-- 右侧：代码追踪 -->
+            <div class="w-3/5 bg-slate-900 rounded-lg p-3 shadow-inner flex flex-col">
+                <div class="text-slate-500 text-[9px] mb-1 uppercase font-bold tracking-widest border-b border-slate-700 flex justify-between">
+                    <span>Python Code Trace</span>
+                    <span id="step-counter">Step: 0/0</span>
+                </div>
+                <pre class="text-slate-300 text-[11px] font-mono flex-1 overflow-y-auto pt-1">
+<span id="L0" class="code-line">def find_anagrams(s, p):</span>
+<span id="L1" class="code-line">    if not s or not p or len(s) < len(p): return []</span>
+<span id="L2" class="code-line">    need = [0] * 26</span>
+<span id="L3" class="code-line">    for ch in p: need[ord(ch) - ord("a")] += 1</span>
+<span id="L4" class="code-line">    need_count = sum(1 for i in need if i > 0)</span>
+<span id="L5" class="code-line">    res, window, valid, left = [], [0] * 26, 0, 0</span>
+<span id="L6" class="code-line">    for right, ch in enumerate(s):</span>
+<span id="L7" class="code-line">        idx = ord(ch) - ord("a")</span>
+<span id="L8" class="code-line">        window[idx] += 1</span>
+<span id="L9" class="code-line">        if window[idx] == need[idx]: valid += 1</span>
+<span id="L10" class="code-line">        if right - left + 1 > len(p):</span>
+<span id="L11" class="code-line">            l_idx = ord(s[left]) - ord("a")</span>
+<span id="L12" class="code-line">            if window[l_idx] == need[l_idx]: valid -= 1</span>
+<span id="L13" class="code-line">            window[l_idx] -= 1</span>
+<span id="L14" class="code-line">            left += 1</span>
+<span id="L15" class="code-line">        if right - left + 1 == len(p) and valid == need_count:</span>
+<span id="L16" class="code-line">            res.append(left)</span>
+<span id="L17" class="code-line">    return res</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const s = "cbaebabacd";
+        const p = "abc";
+        let steps = [];
+        let currentStepIndex = -1;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generateSteps() {
+            let resSteps = [];
+            let need = new Array(26).fill(0);
+            let windowArr = new Array(26).fill(0);
+            let res = [];
+            let valid = 0;
+            let left = 0;
+
+            // 初始准备
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: "函数开始执行", line: "L0", showPointers: false });
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: "检查输入合法性及长度", line: "L1", showPointers: false });
+            
+            // 构建 need
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: "初始化 need 数组", line: "L2", showPointers: false });
+            for (let ch of p) need[ch.charCodeAt(0) - 97]++;
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: `统计 p="${p}" 的字符频率`, line: "L3", showPointers: false });
+            
+            const need_count = need.filter(x => x > 0).length;
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: `计算 need_count: 共有 ${need_count} 种字符需要匹配`, line: "L4", showPointers: false });
+            
+            resSteps.push({ left: 0, right: -1, need: [...need], window: [...windowArr], valid, res: [], msg: "初始化 res, window, valid, left", line: "L5", showPointers: true });
+
+            // 开始循环
+            for (let right = 0; right < s.length; right++) {
+                let ch = s[right];
+                let idx = ch.charCodeAt(0) - 97;
+
+                resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `遍历右边界: s[${right}] = '${ch}'`, line: "L6", showPointers: true });
+                
+                windowArr[idx]++;
+                resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `更新 window['${ch}'] = ${windowArr[idx]}`, line: "L8", showPointers: true });
+
+                if (windowArr[idx] === need[idx]) {
+                    valid++;
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `字符 '${ch}' 数量达标，valid 增加到 ${valid}`, line: "L9", showPointers: true });
+                } else {
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `检查 window['${ch}'] 是否等于 need['${ch}']`, line: "L9", showPointers: true });
+                }
+
+                if (right - left + 1 > p.length) {
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `窗口长度 > ${p.length}，准备收缩左边界`, line: "L10", showPointers: true });
+                    
+                    let leftCh = s[left];
+                    let lIdx = leftCh.charCodeAt(0) - 97;
+                    
+                    if (windowArr[lIdx] === need[lIdx]) {
+                        valid--;
+                        resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `移出的 '${leftCh}' 曾是达标的，valid 减 1`, line: "L12", showPointers: true });
+                    }
+                    
+                    windowArr[lIdx]--;
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `减少移出字符 '${leftCh}' 的计数`, line: "L13", showPointers: true });
+                    
+                    left++;
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `left 指针移至 ${left}`, line: "L14", showPointers: true });
+                }
+
+                let isMatch = (right - left + 1 === p.length && valid === need_count);
+                resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `检查当前窗口 "${s.substring(left, right + 1)}" 是否为异位词`, line: "L15", showPointers: true });
+                
+                if (isMatch) {
+                    res.push(left);
+                    resSteps.push({ left, right, need: [...need], window: [...windowArr], valid, res: [...res], msg: `找到匹配！记录起始索引 ${left}`, line: "L16", showPointers: true });
+                }
+            }
+
+            resSteps.push({ left, right: s.length - 1, need: [...need], window: [...windowArr], valid, res: [...res], msg: "遍历完成，返回结果", line: "L17", showPointers: true });
+            return resSteps;
+        }
+
+        function initUI() {
+            const container = document.getElementById('string-container');
+            container.innerHTML = '';
+            s.split('').forEach((char, i) => {
+                const div = document.createElement('div');
+                div.id = `char-${i}`;
+                div.className = 'char-box w-7 h-9 flex items-center justify-center border text-sm font-bold bg-white shadow-sm rounded-sm';
+                div.innerText = char;
+                container.appendChild(div);
+            });
+
+            // 只需要显示 p 中出现的字符对比
+            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+            const panel = document.getElementById('comparison-panel');
+            panel.innerHTML = '';
+            
+            for (let i = 0; i < 26; i++) {
+                const char = alphabet[i];
+                const isTarget = p.includes(char);
+                if (!isTarget) continue;
+
+                const div = document.createElement('div');
+                div.id = `comp-${char}`;
+                div.className = 'flex items-center gap-2 bg-slate-50 p-1.5 rounded border border-slate-200';
+                div.innerHTML = `
+                    <span class="w-4 font-bold text-slate-500 text-xs">${char}</span>
+                    <div class="flex-1 flex gap-1 items-center">
+                        <div class="flex-1 bg-purple-100 h-4 rounded-sm relative overflow-hidden border border-purple-200">
+                             <div id="bar-need-${char}" class="h-full bg-purple-400 opacity-50" style="width: 0%"></div>
+                             <span id="val-need-${char}" class="absolute inset-0 flex items-center justify-center text-[10px] font-mono">0</span>
+                        </div>
+                        <div class="flex-1 bg-blue-100 h-4 rounded-sm relative overflow-hidden border border-blue-200">
+                             <div id="bar-window-${char}" class="h-full bg-blue-400 opacity-50" style="width: 0%"></div>
+                             <span id="val-window-${char}" class="absolute inset-0 flex items-center justify-center text-[10px] font-mono">0</span>
+                        </div>
+                    </div>
+                    <div id="status-${char}" class="w-4 flex justify-center"></div>
+                `;
+                panel.appendChild(div);
+            }
+
+            steps = generateSteps();
+            updateStep(0);
+        }
+
+        function updateStep(index) {
+            if (index < 0 || index >= steps.length) return;
+            currentStepIndex = index;
+            const step = steps[index];
+
+            // 更新指针
+            const boxes = document.querySelectorAll('.char-box');
+            const lPtr = document.getElementById('left-pointer');
+            const rPtr = document.getElementById('right-pointer');
+
+            if (boxes.length > 0) {
+                const w = boxes[0].offsetWidth + 4;
+                const startX = boxes[0].offsetLeft;
+                if (step.showPointers) {
+                    lPtr.style.opacity = 1;
+                    lPtr.style.left = `${startX + step.left * w + 14}px`;
+                    if (step.right >= 0) {
+                        rPtr.style.opacity = 1;
+                        rPtr.style.left = `${startX + step.right * w + 14}px`;
+                    } else { rPtr.style.opacity = 0; }
+                } else {
+                    lPtr.style.opacity = 0;
+                    rPtr.style.opacity = 0;
+                }
+            }
+
+            // 更新高亮
+            boxes.forEach((el, i) => {
+                const inWindow = step.showPointers && i >= step.left && i <= step.right;
+                const isMatchStart = step.res.includes(i);
+                el.className = 'char-box w-7 h-9 flex items-center justify-center border text-sm font-bold shadow-sm rounded-sm ' + 
+                    (inWindow ? 'window-highlight border-purple-300 bg-purple-50 text-purple-700' : 'bg-white text-slate-700 border-slate-200');
+                if (isMatchStart) el.classList.add('ring-2', 'ring-emerald-400', 'ring-offset-1');
+            });
+
+            // 更新频率面板
+            const alphabet = "abcdefghijklmnopqrstuvwxyz";
+            const need_count_target = step.need.filter(x => x > 0).length;
+            for (let i = 0; i < 26; i++) {
+                const char = alphabet[i];
+                if (!p.includes(char)) continue;
+
+                const nVal = step.need[i];
+                const wVal = step.window[i];
+                
+                document.getElementById(`val-need-${char}`).innerText = nVal;
+                document.getElementById(`val-window-${char}`).innerText = wVal;
+                document.getElementById(`bar-need-${char}`).style.width = `${(nVal / 3) * 100}%`;
+                document.getElementById(`bar-window-${char}`).style.width = `${(wVal / 3) * 100}%`;
+                
+                const statusIcon = document.getElementById(`status-${char}`);
+                if (wVal === nVal && nVal > 0) {
+                    statusIcon.innerHTML = '✅';
+                    document.getElementById(`comp-${char}`).classList.replace('bg-slate-50', 'bg-emerald-50');
+                } else {
+                    statusIcon.innerHTML = '';
+                    document.getElementById(`comp-${char}`).classList.replace('bg-emerald-50', 'bg-slate-50');
+                }
+            }
+
+            document.getElementById('valid-val').innerText = `${step.valid} / ${need_count_target}`;
+            document.getElementById('res-val').innerText = JSON.stringify(step.res);
+            document.getElementById('log-message').innerText = step.msg;
+            document.getElementById('step-counter').innerText = `步数: ${index}/${steps.length - 1}`;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            const activeLine = document.getElementById(step.line);
+            if (activeLine) activeLine.classList.add('code-active');
+
+            document.getElementById('btn-prev').disabled = index === 0;
+            document.getElementById('btn-next').disabled = index === steps.length - 1;
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex + 1); };
+        document.getElementById('btn-prev').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex - 1); };
+        document.getElementById('btn-reset').onclick = () => { stopAutoPlay(); updateStep(0); };
+        document.getElementById('btn-play').onclick = () => isPlaying ? stopAutoPlay() : startAutoPlay();
+
+        function startAutoPlay() {
+            if (currentStepIndex === steps.length - 1) updateStep(0);
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停";
+            document.getElementById('btn-play').classList.replace('bg-purple-600', 'bg-orange-600');
+            playInterval = setInterval(() => {
+                if (currentStepIndex < steps.length - 1) updateStep(currentStepIndex + 1);
+                else stopAutoPlay();
+            }, 600);
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            if (playInterval) clearInterval(playInterval);
+            document.getElementById('btn-play').innerText = "播放";
+            document.getElementById('btn-play').classList.replace('bg-orange-600', 'bg-purple-600');
+        }
+
+        window.addEventListener('load', initUI);
+    </script>
+</body>
+</html>

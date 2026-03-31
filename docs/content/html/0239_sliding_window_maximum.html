@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滑动窗口最大值 - 可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .char-box { transition: all 0.3s ease; }
+        .window-highlight { border-bottom: 4px solid #f59e0b; background-color: rgba(245, 158, 11, 0.1); }
+        .pointer { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 18px; line-height: 1.4; border-left: 2px solid transparent; white-space: pre; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left: 2px solid #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 2px; color: #60a5fa; font-size: 9px; }
+        .dq-item { transition: all 0.3s; transform-origin: center; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen overflow-hidden font-sans p-2">
+    <div class="max-w-6xl mx-auto h-full flex flex-col">
+        <!-- 顶部：数组展示区 -->
+        <div class="bg-white rounded-t-lg shadow-sm p-4 mb-1 relative border-b">
+            <h2 class="text-sm font-bold text-slate-700 mb-4 text-center">触发 dq.popleft() 的演示案例</h2>
+            <div class="text-center text-xs text-slate-500 mb-6">
+                数组 nums: <span class="font-mono font-bold text-amber-600">[10, 2, 3, 1]</span>, 窗口大小 k: <span class="font-mono font-bold text-amber-600">2</span>
+            </div>
+            
+            <div class="relative py-6">
+                <div id="nums-container" class="flex justify-center gap-1"></div>
+                <!-- 指针 idx -->
+                <div id="idx-pointer" class="pointer absolute top-0 flex flex-col items-center w-8 -ml-4 opacity-0">
+                    <span class="text-rose-600 text-[10px] font-bold italic">idx</span>
+                    <div class="w-0.5 h-6 bg-rose-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：核心交互区 -->
+        <div class="flex flex-1 gap-2 min-h-0">
+            <!-- 左侧：状态 -->
+            <div class="w-1/2 flex flex-col gap-2">
+                <div class="bg-white p-4 rounded-lg shadow-sm flex-1 flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">单调队列 (存储下标)</span>
+                        <span class="text-[9px] text-slate-400 italic">队首 (最大) → 队尾</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-center gap-2 h-24 border-2 border-dashed border-slate-100 rounded-xl relative" id="deque-container">
+                    </div>
+
+                    <div class="mt-6 space-y-3 border-t pt-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">当前窗口最大值:</span>
+                            <span id="current-max" class="font-mono font-bold text-amber-600 text-lg">-</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-500">结果 res:</span>
+                            <span id="res-val" class="font-mono font-bold text-emerald-600 text-sm">[]</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-2 rounded-lg shadow-sm flex flex-wrap justify-center gap-1">
+                    <button id="btn-prev" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100 disabled:opacity-50">上一步</button>
+                    <button id="btn-play" class="px-3 py-1 text-xs bg-amber-600 text-white rounded-full hover:bg-amber-700 min-w-[70px]">播放</button>
+                    <button id="btn-next" class="px-2 py-1 text-xs bg-slate-50 border rounded hover:bg-slate-100">下一步</button>
+                    <button id="btn-reset" class="px-2 py-1 text-xs bg-slate-100 rounded hover:bg-slate-200">重置数据</button>
+                </div>
+
+                <div id="log-message" class="bg-blue-50 p-2 rounded-lg border-l-4 border-blue-400 text-blue-800 text-[11px] leading-tight min-h-[50px] flex items-center shadow-sm">
+                    点击“下一步”观察索引 0 的最大值如何被弹出。
+                </div>
+            </div>
+
+            <!-- 右侧：代码追踪 -->
+            <div class="w-1/2 bg-slate-900 rounded-lg p-3 shadow-inner flex flex-col">
+                <div class="text-slate-500 text-[9px] mb-1 uppercase font-bold tracking-widest border-b border-slate-700 flex justify-between">
+                    <span>Python 代码追踪</span>
+                    <span id="step-counter">Step: 0/0</span>
+                </div>
+                <pre class="text-slate-300 text-[11px] font-mono flex-1 overflow-y-auto pt-1">
+<span id="L0" class="code-line">def max_sliding_window(nums, k):</span>
+<span id="L1" class="code-line">    if not nums or k == 0: return []</span>
+<span id="L2" class="code-line">    from collections import deque</span>
+<span id="L3" class="code-line">    dq = deque()</span>
+<span id="L4" class="code-line">    res = []</span>
+<span id="L5" class="code-line">    for idx, num in enumerate(nums):</span>
+<span id="L6" class="code-line">        while dq and nums[dq[-1]] < num:</span>
+<span id="L7" class="code-line">            dq.pop()</span>
+<span id="8" class="code-line">        dq.append(idx)</span>
+<span id="L9" class="code-line">        # --- 观察下面这两行 ---</span>
+<span id="L10" class="code-line">        if dq[0] <= idx - k:</span>
+<span id="L11" class="code-line">            dq.popleft() # <--- 触发点</span>
+<span id="L12" class="code-line">        if idx >= k - 1:</span>
+<span id="L13" class="code-line">            res.append(nums[dq[0]])</span>
+<span id="L14" class="code-line">    return res</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 使用新的 Test Case
+        const nums = [10, 2, 3, 1];
+        const k = 2;
+        let steps = [];
+        let currentStepIndex = -1;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generateSteps() {
+            let resSteps = [];
+            let dq = []; 
+            let res = [];
+
+            resSteps.push({ idx: -1, dq: [], res: [], msg: "初始化变量", line: "L3" });
+
+            for (let i = 0; i < nums.length; i++) {
+                let num = nums[i];
+                resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `处理 nums[${i}] = ${num}`, line: "L5" });
+
+                while (dq.length > 0 && nums[dq[dq.length - 1]] < num) {
+                    dq.pop();
+                    resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `弹出较小的队尾`, line: "L7" });
+                }
+
+                dq.push(i);
+                resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `下标 ${i} 入队`, line: "L8" });
+
+                // 这里是重点
+                if (dq[0] <= i - k) {
+                    resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `队首 ${dq[0]} 已滑出窗口范围 [${i-k+1}, ${i}]`, line: "L10" });
+                    dq.shift();
+                    resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `执行 popleft()：移除过期的最大值下标`, line: "L11" });
+                } else {
+                    resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `队首 ${dq[0]} 仍在窗口内，无需弹出`, line: "L10" });
+                }
+
+                if (i >= k - 1) {
+                    res.push(nums[dq[0]]);
+                    resSteps.push({ idx: i, dq: [...dq], res: [...res], msg: `记录结果: ${nums[dq[0]]}`, line: "L13" });
+                }
+            }
+            resSteps.push({ idx: nums.length - 1, dq: [...dq], res: [...res], msg: "完成", line: "L14" });
+            return resSteps;
+        }
+
+        function initUI() {
+            const container = document.getElementById('nums-container');
+            container.innerHTML = '';
+            nums.forEach((num, i) => {
+                const div = document.createElement('div');
+                div.id = `num-${i}`;
+                div.className = 'char-box w-12 h-14 flex flex-col items-center justify-center border text-sm font-bold bg-white shadow-sm rounded';
+                div.innerHTML = `<span class="text-[9px] text-slate-400 mb-1">idx:${i}</span><span>${num}</span>`;
+                container.appendChild(div);
+            });
+            steps = generateSteps();
+            updateStep(0);
+        }
+
+        function updateStep(index) {
+            if (index < 0 || index >= steps.length) return;
+            currentStepIndex = index;
+            const step = steps[index];
+
+            const boxes = document.querySelectorAll('.char-box');
+            const idxPtr = document.getElementById('idx-pointer');
+
+            if (boxes.length > 0 && step.idx >= 0) {
+                idxPtr.style.opacity = 1;
+                idxPtr.style.left = `${boxes[0].offsetLeft + step.idx * (boxes[0].offsetWidth + 4) + 24}px`;
+            } else { idxPtr.style.opacity = 0; }
+
+            boxes.forEach((el, i) => {
+                const winStart = step.idx - k + 1;
+                const inWindow = step.idx >= k - 1 && i >= winStart && i <= step.idx;
+                el.className = 'char-box w-12 h-14 flex flex-col items-center justify-center border text-sm font-bold shadow-sm rounded ' + 
+                    (inWindow ? 'window-highlight border-amber-300 bg-amber-50 text-amber-700' : 'bg-white text-slate-700 border-slate-200');
+            });
+
+            const dqContainer = document.getElementById('deque-container');
+            dqContainer.innerHTML = '';
+            step.dq.forEach((dqIdx, i) => {
+                const item = document.createElement('div');
+                item.className = 'dq-item flex flex-col items-center bg-indigo-600 text-white rounded p-2 min-w-[50px] shadow-md';
+                item.innerHTML = `<span class="text-[8px] opacity-70">idx:${dqIdx}</span><span class="text-sm font-bold">${nums[dqIdx]}</span>`;
+                dqContainer.appendChild(item);
+            });
+
+            document.getElementById('current-max').innerText = step.dq.length > 0 ? nums[step.dq[0]] : '-';
+            document.getElementById('res-val').innerText = JSON.stringify(step.res);
+            document.getElementById('log-message').innerText = step.msg;
+            document.getElementById('step-counter').innerText = `步骤: ${index}/${steps.length - 1}`;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            const activeLine = document.getElementById(step.line);
+            if (activeLine) activeLine.classList.add('code-active');
+
+            document.getElementById('btn-prev').disabled = index === 0;
+            document.getElementById('btn-next').disabled = index === steps.length - 1;
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex + 1); };
+        document.getElementById('btn-prev').onclick = () => { stopAutoPlay(); updateStep(currentStepIndex - 1); };
+        document.getElementById('btn-reset').onclick = () => { stopAutoPlay(); updateStep(0); };
+        document.getElementById('btn-play').onclick = () => isPlaying ? stopAutoPlay() : startAutoPlay();
+
+        function startAutoPlay() {
+            if (currentStepIndex === steps.length - 1) updateStep(0);
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停";
+            playInterval = setInterval(() => {
+                if (currentStepIndex < steps.length - 1) updateStep(currentStepIndex + 1);
+                else stopAutoPlay();
+            }, 800);
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearInterval(playInterval);
+            document.getElementById('btn-play').innerText = "播放";
+        }
+
+        window.addEventListener('load', initUI);
+    </script>
+</body>
+</html>
