@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻找重复数 - 快慢指针可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .node { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); border-width: 2px; position: relative; }
+        
+        /* 慢指针样式 */
+        .node-active-slow { border-color: #3b82f6 !important; background-color: #eff6ff !important; transform: translateY(-5px); }
+        .node-active-slow .ptr-label-slow { opacity: 1; transform: translateY(0); }
+
+        /* 快指针样式 */
+        .node-active-fast { border-color: #ef4444 !important; background-color: #fef2f2 !important; transform: translateY(-5px); }
+        .node-active-fast .ptr-label-fast { opacity: 1; transform: translateY(0); }
+
+        /* 重合样式 */
+        .node-active-both { 
+            border-color: #8b5cf6 !important; 
+            background-color: #f5f3ff !important; 
+            transform: scale(1.1) translateY(-5px);
+            animation: pulse-purple 2s infinite;
+        }
+        .node-active-both .ptr-label-both { opacity: 1; transform: translateY(0); }
+
+        @keyframes pulse-purple {
+            0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(139, 92, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        
+        .ptr-label { 
+            position: absolute; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(10px); 
+            white-space: nowrap; 
+            font-weight: bold; 
+            font-size: 10px; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            opacity: 0; 
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .ptr-label-slow { bottom: -25px; background: #3b82f6; color: white; }
+        .ptr-label-fast { top: -25px; background: #ef4444; color: white; }
+        .ptr-label-both { bottom: -25px; background: #8b5cf6; color: white; z-index: 30; }
+
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 20px; line-height: 1.5; border-left: 3px solid transparent; white-space: pre; font-size: 12px; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left-color: #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 4px; color: #60a5fa; font-size: 10px; }
+
+        svg { overflow: visible !important; }
+        .path-line { fill: none; stroke: #e2e8f0; stroke-width: 2; marker-end: url(#arrowhead); transition: all 0.3s; }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen overflow-hidden p-4">
+    <div class="max-w-6xl mx-auto h-full flex flex-col gap-4">
+        
+        <!-- 顶部：控制面板 -->
+        <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between border border-slate-200">
+            <div class="flex items-center gap-4">
+                <h2 class="font-bold text-slate-800">寻找重复数可视化</h2>
+                <div class="flex bg-slate-100 p-1 rounded-lg">
+                    <button id="case-1" class="px-3 py-1 text-xs rounded-md bg-white shadow-sm font-medium transition-all">用例 1: [1,3,4,2,2]</button>
+                    <button id="case-2" class="px-3 py-1 text-xs rounded-md text-slate-500 hover:text-slate-700 transition-all">用例 2: [3,3,3,3,3]</button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="px-4 py-2 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition-colors">上一步</button>
+                <button id="btn-play" class="px-6 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all font-medium min-w-[100px]">自动播放</button>
+                <button id="btn-next" class="px-4 py-2 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">下一步</button>
+                <button id="btn-reset" class="p-2 text-slate-400 hover:text-slate-600" title="重置">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 视图区 -->
+        <div class="flex-1 flex gap-4 min-h-0">
+            <!-- 左侧：图形与状态 -->
+            <div class="flex-[3] flex flex-col gap-4">
+                <!-- 链表图形区 -->
+                <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 relative flex flex-col">
+                    <div class="flex justify-between items-center mb-12">
+                        <div id="phase-display" class="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full border border-amber-200">
+                            准备就绪
+                        </div>
+                        <div class="text-[10px] text-slate-400 uppercase tracking-widest">
+                            节点映射关系: 索引 → 数值 (下一跳)
+                        </div>
+                    </div>
+                    
+                    <div class="relative flex-1 flex justify-center items-center py-12">
+                        <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                        <div id="nodes-container" class="flex justify-around w-full max-w-2xl z-10"></div>
+                    </div>
+
+                    <div id="logic-desc" class="mt-8 p-4 bg-slate-50 rounded-xl text-sm text-slate-600 border border-slate-100 min-h-[60px] flex items-center italic">
+                        点击“下一步”或“自动播放”开始。
+                    </div>
+                </div>
+
+                <!-- 变量实时数值 -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <span class="text-xs text-slate-500 font-medium">当前 Slow 索引</span>
+                        </div>
+                        <span id="val-slow" class="text-xl font-mono font-bold text-slate-700">0</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                            <span class="text-xs text-slate-500 font-medium">当前 Fast 索引</span>
+                        </div>
+                        <span id="val-fast" class="text-xl font-mono font-bold text-slate-700">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：代码追踪 -->
+            <div class="flex-[2] bg-slate-900 rounded-xl p-5 shadow-2xl flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-2">
+                    <span class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">执行追踪</span>
+                    <div id="step-counter" class="text-slate-500 text-[10px] font-mono">STEP: 0/0</div>
+                </div>
+                <pre id="code-trace" class="text-slate-300 font-mono flex-1 overflow-y-auto">
+<span id="L0" class="code-line">def find_duplicate(nums):</span>
+<span id="L1" class="code-line">    slow = 0</span>
+<span id="L2" class="code-line">    fast = 0</span>
+<span id="L3" class="code-line">    while True: # 阶段 1: 寻找环内相遇点</span>
+<span id="L4" class="code-line">        slow = nums[slow]</span>
+<span id="L5" class="code-line">        fast = nums[nums[fast]]</span>
+<span id="L6" class="code-line">        if slow == fast:</span>
+<span id="L7" class="code-line">            break</span>
+<span id="L8" class="code-line">    slow = 0 # 阶段 2: 寻找入口点</span>
+<span id="L9" class="code-line">    while slow != fast:</span>
+<span id="L10" class="code-line">        slow = nums[slow]</span>
+<span id="L11" class="code-line">        fast = nums[fast]</span>
+<span id="L12" class="code-line">    return slow</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNums = [1, 3, 4, 2, 2];
+        let steps = [];
+        let currentStepIdx = -1;
+        let isPlaying = false;
+        let playTimer = null;
+
+        function generateSteps(nums) {
+            let res = [];
+            let slow = 0, fast = 0;
+            res.push({ slow, fast, phase: 0, msg: "初始化：快慢指针均指向索引 0", line: "L1" });
+
+            // Phase 1
+            while (true) {
+                slow = nums[slow];
+                res.push({ slow, fast, phase: 1, msg: `慢指针走 1 步: nums[${Math.floor(res[res.length-1].slow)}] → ${slow}`, line: "L4" });
+                fast = nums[nums[fast]];
+                res.push({ slow, fast, phase: 1, msg: `快指针走 2 步到索引 ${fast}`, line: "L5" });
+                if (slow === fast) {
+                    res.push({ slow, fast, phase: 1, msg: `🎉 相遇！快慢指针在索引 ${slow} 重合`, line: "L6" });
+                    res.push({ slow, fast, phase: 1, msg: "阶段 1 结束，跳出循环", line: "L7" });
+                    break;
+                }
+            }
+
+            // Phase 2
+            slow = 0;
+            res.push({ slow, fast, phase: 2, msg: "阶段 2：慢指针重置到起点 0", line: "L8" });
+            while (slow !== fast) {
+                slow = nums[slow];
+                res.push({ slow, fast, phase: 2, msg: `慢指针前进 1 步到 ${slow}`, line: "L10" });
+                fast = nums[fast];
+                res.push({ slow, fast, phase: 2, msg: `快指针也前进 1 步到 ${fast}`, line: "L11" });
+            }
+            res.push({ slow, fast, phase: 2, msg: `✨ 再次相遇！索引 ${slow} 即为重复数字`, line: "L12" });
+            return res;
+        }
+
+        function initView(nums) {
+            currentNums = nums;
+            steps = generateSteps(nums);
+            const container = document.getElementById('nodes-container');
+            const svg = document.getElementById('svg-layer');
+            container.innerHTML = '';
+            svg.innerHTML = `
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1" />
+                    </marker>
+                </defs>
+            `;
+            
+            nums.forEach((val, i) => {
+                const node = document.createElement('div');
+                node.id = `node-${i}`;
+                node.className = 'node w-14 h-14 rounded-full bg-white border-slate-200 flex flex-col items-center justify-center shadow-sm z-10';
+                node.innerHTML = `
+                    <span class="text-[9px] text-slate-400 absolute -top-5 font-mono">Index ${i}</span>
+                    <span class="font-bold text-slate-700 text-lg">${val}</span>
+                    <div class="ptr-label ptr-label-slow">Slow</div>
+                    <div class="ptr-label ptr-label-fast">Fast</div>
+                    <div class="ptr-label ptr-label-both">Both</div>
+                `;
+                container.appendChild(node);
+            });
+
+            setTimeout(() => {
+                const sRect = svg.getBoundingClientRect();
+                nums.forEach((val, i) => {
+                    const fromNode = document.getElementById(`node-${i}`);
+                    const toNode = document.getElementById(`node-${val}`);
+                    const from = fromNode.getBoundingClientRect();
+                    const to = toNode.getBoundingClientRect();
+                    
+                    const x1 = from.left + from.width/2 - sRect.left;
+                    const y1 = from.top + from.height/2 - sRect.top;
+                    const x2 = to.left + to.width/2 - sRect.left;
+                    const y2 = to.top + to.height/2 - sRect.top;
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    let d;
+                    if (i === val) {
+                        d = `M ${x1},${y1-22} a 18,18 0 1,1 0.1,0`;
+                    } else {
+                        const midX = (x1 + x2) / 2;
+                        const midY = (y1 + y2) / 2 - (i < val ? 35 : -35);
+                        d = `M ${x1},${y1} Q ${midX},${midY} ${x2},${y2}`;
+                    }
+                    path.setAttribute("d", d);
+                    path.setAttribute("class", "path-line");
+                    path.id = `path-${i}`;
+                    svg.appendChild(path);
+                });
+                updateStep(0);
+            }, 100);
+        }
+
+        function updateStep(idx) {
+            if (idx < 0 || idx >= steps.length) return;
+            currentStepIdx = idx;
+            const step = steps[idx];
+
+            document.getElementById('btn-prev').disabled = idx === 0;
+            document.getElementById('step-counter').innerText = `STEP: ${idx + 1}/${steps.length}`;
+
+            // 更新节点状态
+            document.querySelectorAll('.node').forEach((n, i) => {
+                n.classList.remove('node-active-slow', 'node-active-fast', 'node-active-both');
+                if (i === step.slow && i === step.fast) {
+                    n.classList.add('node-active-both');
+                } else if (i === step.slow) {
+                    n.classList.add('node-active-slow');
+                } else if (i === step.fast) {
+                    n.classList.add('node-active-fast');
+                }
+            });
+
+            // 更新数值和文本
+            document.getElementById('val-slow').innerText = step.slow;
+            document.getElementById('val-fast').innerText = step.fast;
+            document.getElementById('logic-desc').innerText = step.msg;
+            
+            const phaseEl = document.getElementById('phase-display');
+            if (step.phase === 1) {
+                phaseEl.innerText = "阶段 1: 寻找相遇点";
+                phaseEl.className = "px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200";
+            } else if (step.phase === 2) {
+                phaseEl.innerText = "阶段 2: 寻找入口点 (重复值)";
+                phaseEl.className = "px-3 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-full border border-purple-200";
+            } else {
+                phaseEl.innerText = "准备阶段";
+                phaseEl.className = "px-3 py-1 bg-slate-50 text-slate-500 text-xs font-bold rounded-full border border-slate-200";
+            }
+
+            // 代码高亮
+            document.querySelectorAll('.code-line').forEach(line => line.classList.remove('code-active'));
+            if (step.line) document.getElementById(step.line).classList.add('code-active');
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopPlay(); if (currentStepIdx < steps.length - 1) updateStep(currentStepIdx + 1); else updateStep(0); };
+        document.getElementById('btn-prev').onclick = () => { stopPlay(); updateStep(currentStepIdx - 1); };
+        document.getElementById('btn-reset').onclick = () => { stopPlay(); updateStep(0); };
+        document.getElementById('btn-play').onclick = () => { if (isPlaying) stopPlay(); else startPlay(); };
+
+        function startPlay() {
+            if (currentStepIdx === steps.length - 1) updateStep(0);
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停播放";
+            playTimer = setInterval(() => {
+                if (currentStepIdx < steps.length - 1) updateStep(currentStepIdx + 1);
+                else stopPlay();
+            }, 1000);
+        }
+
+        function stopPlay() {
+            isPlaying = false;
+            clearInterval(playTimer);
+            document.getElementById('btn-play').innerText = "自动播放";
+        }
+
+        document.getElementById('case-1').onclick = function() {
+            this.className = "px-3 py-1 text-xs rounded-md bg-white shadow-sm font-medium transition-all";
+            document.getElementById('case-2').className = "px-3 py-1 text-xs rounded-md text-slate-500 hover:text-slate-700 transition-all";
+            stopPlay(); initView([1, 3, 4, 2, 2]);
+        };
+        document.getElementById('case-2').onclick = function() {
+            this.className = "px-3 py-1 text-xs rounded-md bg-white shadow-sm font-medium transition-all";
+            document.getElementById('case-1').className = "px-3 py-1 text-xs rounded-md text-slate-500 hover:text-slate-700 transition-all";
+            stopPlay(); initView([3, 3, 3, 3, 3]);
+        };
+
+        window.onload = () => initView([1, 3, 4, 2, 2]);
+    </script>
+</body>
+</html>

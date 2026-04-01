@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索旋转排序数组 - 可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bar { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .pointer { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 18px; line-height: 1.5; border-left: 2px solid transparent; white-space: pre; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left: 2px solid #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 2px; color: #60a5fa; font-size: 10px; }
+        .range-highlight { background-color: rgba(59, 130, 246, 0.1); border-top: 2px solid #3b82f6; border-bottom: 2px solid #3b82f6; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen overflow-hidden font-sans p-2">
+    <div class="max-w-6xl mx-auto h-full flex flex-col">
+        <!-- 顶部：数组图形化展示区 -->
+        <div class="bg-white rounded-t-lg shadow-sm p-4 mb-1 relative border-b">
+            <h2 class="text-sm font-bold text-slate-700 mb-2 text-center">33. 搜索旋转排序数组</h2>
+            <div class="text-center text-xs text-slate-500 mb-4">
+                nums: <span class="font-mono font-bold text-blue-600">[4, 5, 6, 7, 0, 1, 2]</span>, target: <span class="font-mono font-bold text-rose-600">0</span>
+            </div>
+            
+            <div class="relative h-32 flex items-end justify-center gap-2 px-10">
+                <div id="bars-container" class="absolute inset-0 flex items-end justify-center gap-2 pb-8">
+                    <!-- Bars injected here -->
+                </div>
+                
+                <!-- 指针容器 -->
+                <div id="pointer-container" class="absolute inset-0 pointer-events-none">
+                    <div id="ptr-left" class="pointer absolute bottom-0 flex flex-col items-center w-8 -ml-4 opacity-0">
+                        <div class="w-0.5 h-24 bg-blue-500 opacity-20"></div>
+                        <span class="bg-blue-500 text-white text-[9px] px-1 rounded-sm">L</span>
+                    </div>
+                    <div id="ptr-right" class="pointer absolute bottom-0 flex flex-col items-center w-8 -ml-4 opacity-0">
+                        <div class="w-0.5 h-24 bg-rose-500 opacity-20"></div>
+                        <span class="bg-rose-500 text-white text-[9px] px-1 rounded-sm">R</span>
+                    </div>
+                    <div id="ptr-mid" class="pointer absolute bottom-0 flex flex-col items-center w-8 -ml-4 opacity-0">
+                        <div class="w-0.5 h-28 bg-amber-500 border-l border-dashed border-white"></div>
+                        <span class="bg-amber-500 text-white text-[9px] px-1 rounded-sm">M</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间：逻辑与代码区 -->
+        <div class="flex flex-1 gap-2 min-h-0">
+            <!-- 左侧：变量与状态 -->
+            <div class="w-1/3 flex flex-col gap-2">
+                <div class="bg-white p-4 rounded-lg shadow-sm flex-1 flex flex-col">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">变量状态</span>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <span class="text-xs text-slate-500 italic">left / right</span>
+                            <span id="val-lr" class="font-mono font-bold text-slate-700">0 / 6</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <span class="text-xs text-slate-500 italic">mid (index)</span>
+                            <span id="val-mid" class="font-mono font-bold text-amber-600">-</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <span class="text-xs text-slate-500 italic">nums[mid]</span>
+                            <span id="val-nums-mid" class="font-mono font-bold text-amber-600">-</span>
+                        </div>
+                        <div class="bg-blue-50 p-2 rounded text-[11px] text-blue-700 leading-relaxed" id="logic-desc">
+                            准备开始二分查找。
+                        </div>
+                    </div>
+
+                    <div class="mt-auto space-y-2">
+                        <div class="flex gap-1">
+                             <button id="btn-prev" class="flex-1 py-2 text-xs bg-slate-100 rounded hover:bg-slate-200 disabled:opacity-50">上一步</button>
+                             <button id="btn-next" class="flex-1 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">下一步</button>
+                        </div>
+                        <button id="btn-play" class="w-full py-2 text-xs border border-blue-200 text-blue-600 rounded hover:bg-blue-50">自动播放</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：代码追踪 -->
+            <div class="w-2/3 bg-slate-900 rounded-lg p-4 shadow-inner flex flex-col">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1">
+                    <span class="text-slate-500 text-[10px] font-bold uppercase">Python 代码追踪</span>
+                    <span id="step-info" class="text-slate-500 text-[10px]">Step: 0</span>
+                </div>
+                <pre class="text-slate-300 text-[12px] font-mono flex-1 overflow-y-auto">
+<span id="L0" class="code-line">def search(nums, target):</span>
+<span id="L1" class="code-line">    left, right = 0, len(nums) - 1</span>
+<span id="L2" class="code-line">    while left <= right:</span>
+<span id="L3" class="code-line">        mid = (left + right) // 2</span>
+<span id="L4" class="code-line">        if nums[mid] == target: return mid</span>
+<span id="L5" class="code-line">        if nums[left] <= nums[mid]: # 左半边有序</span>
+<span id="L6" class="code-line">            if nums[left] <= target < nums[mid]:</span>
+<span id="L7" class="code-line">                right = mid - 1</span>
+<span id="L8" class="code-line">            else:</span>
+<span id="L9" class="code-line">                left = mid + 1</span>
+<span id="L10" class="code-line">        else: # 右半边有序</span>
+<span id="L11" class="code-line">            if nums[mid] < target <= nums[right]:</span>
+<span id="L12" class="code-line">                left = mid + 1</span>
+<span id="L13" class="code-line">            else:</span>
+<span id="L14" class="code-line">                right = mid - 1</span>
+<span id="L15" class="code-line">    return -1</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nums = [4, 5, 6, 7, 0, 1, 2];
+        const target = 0;
+        let steps = [];
+        let currentIdx = -1;
+        let isPlaying = false;
+        let timer = null;
+
+        function generateSteps() {
+            let res = [];
+            let left = 0, right = nums.length - 1;
+            
+            res.push({ left, right, mid: null, msg: "初始化 left 和 right 指针", line: "L1" });
+
+            while (left <= right) {
+                res.push({ left, right, mid: null, msg: "检查循环条件: left <= right", line: "L2" });
+                let mid = Math.floor((left + right) / 2);
+                res.push({ left, right, mid, msg: `计算中间索引 mid = ${mid}`, line: "L3" });
+                
+                if (nums[mid] === target) {
+                    res.push({ left, right, mid, msg: "找到目标！返回索引 " + mid, line: "L4" });
+                    return res;
+                }
+                res.push({ left, right, mid, msg: `判断 nums[mid](${nums[mid]}) 是否等于 target(${target})`, line: "L4" });
+
+                if (nums[left] <= nums[mid]) {
+                    res.push({ left, right, mid, msg: `nums[left](${nums[left]}) <= nums[mid](${nums[mid]})，左侧区间有序`, line: "L5" });
+                    if (nums[left] <= target && target < nums[mid]) {
+                        res.push({ left, right, mid, msg: `目标落在左侧有序区间内`, line: "L6" });
+                        right = mid - 1;
+                        res.push({ left, right, mid, msg: `收缩右边界: right = mid - 1`, line: "L7" });
+                    } else {
+                        res.push({ left, right, mid, msg: `目标不在左侧有序区间，搜索右侧`, line: "L8" });
+                        left = mid + 1;
+                        res.push({ left, right, mid, msg: `收缩左边界: left = mid + 1`, line: "L9" });
+                    }
+                } else {
+                    res.push({ left, right, mid, msg: `左侧无序，则右侧区间必定有序`, line: "L10" });
+                    if (nums[mid] < target && target <= nums[right]) {
+                        res.push({ left, right, mid, msg: `目标落在右侧有序区间内`, line: "L11" });
+                        left = mid + 1;
+                        res.push({ left, right, mid, msg: `收缩左边界: left = mid + 1`, line: "L12" });
+                    } else {
+                        res.push({ left, right, mid, msg: `目标不在右侧有序区间，搜索左侧`, line: "L13" });
+                        right = mid - 1;
+                        res.push({ left, right, mid, msg: `收缩右边界: right = mid - 1`, line: "L14" });
+                    }
+                }
+            }
+            res.push({ left, right, mid: null, msg: "查找失败，返回 -1", line: "L15" });
+            return res;
+        }
+
+        function initUI() {
+            const container = document.getElementById('bars-container');
+            const maxVal = Math.max(...nums);
+            nums.forEach((val, i) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col items-center gap-1';
+                
+                const bar = document.createElement('div');
+                bar.id = `bar-${i}`;
+                bar.className = 'bar w-8 bg-slate-300 rounded-t-sm relative flex items-end justify-center';
+                bar.style.height = `${(val + 1) / (maxVal + 1) * 80}%`;
+                bar.innerHTML = `<span class="text-[10px] font-bold mb-1 ${val === target ? 'text-rose-600' : 'text-slate-600'}">${val}</span>`;
+                
+                const idx = document.createElement('span');
+                idx.className = 'text-[9px] text-slate-400 font-mono';
+                idx.innerText = i;
+                
+                wrapper.appendChild(bar);
+                wrapper.appendChild(idx);
+                container.appendChild(wrapper);
+            });
+            steps = generateSteps();
+            renderStep(0);
+        }
+
+        function renderStep(index) {
+            if (index < 0 || index >= steps.length) return;
+            currentIdx = index;
+            const step = steps[index];
+            
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach((bar, i) => {
+                bar.classList.remove('bg-blue-500', 'bg-slate-300', 'bg-amber-400', 'ring-2', 'ring-blue-400', 'opacity-30', 'ring-offset-1');
+                
+                if (i < step.left || i > step.right) {
+                    bar.classList.add('opacity-30', 'bg-slate-300');
+                } else if (i === step.mid) {
+                    bar.classList.add('bg-amber-400', 'ring-2', 'ring-amber-500', 'ring-offset-1');
+                } else {
+                    bar.classList.add('bg-blue-400');
+                }
+            });
+
+            const lPtr = document.getElementById('ptr-left');
+            const rPtr = document.getElementById('ptr-right');
+            const mPtr = document.getElementById('ptr-mid');
+            
+            const getPos = (i) => bars[i].parentElement.offsetLeft + bars[i].parentElement.offsetWidth / 2;
+
+            if (step.left >= 0 && step.left < nums.length) {
+                lPtr.style.opacity = 1;
+                lPtr.style.left = `${getPos(step.left)}px`;
+            }
+            if (step.right >= 0 && step.right < nums.length) {
+                rPtr.style.opacity = 1;
+                rPtr.style.left = `${getPos(step.right)}px`;
+            } else {
+                rPtr.style.opacity = 0;
+            }
+            if (step.mid !== null) {
+                mPtr.style.opacity = 1;
+                mPtr.style.left = `${getPos(step.mid)}px`;
+            } else {
+                mPtr.style.opacity = 0;
+            }
+
+            document.getElementById('val-lr').innerText = `${step.left} / ${step.right}`;
+            document.getElementById('val-mid').innerText = step.mid !== null ? step.mid : '-';
+            document.getElementById('val-nums-mid').innerText = step.mid !== null ? nums[step.mid] : '-';
+            document.getElementById('logic-desc').innerText = step.msg;
+            document.getElementById('step-info').innerText = `Step: ${index + 1} / ${steps.length}`;
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('code-active'));
+            document.getElementById(step.line).classList.add('code-active');
+
+            document.getElementById('btn-prev').disabled = index === 0;
+            document.getElementById('btn-next').innerText = index === steps.length - 1 ? "完成" : "下一步";
+        }
+
+        document.getElementById('btn-next').onclick = () => {
+            stopPlay();
+            if (currentIdx < steps.length - 1) renderStep(currentIdx + 1);
+        };
+        document.getElementById('btn-prev').onclick = () => {
+            stopPlay();
+            if (currentIdx > 0) renderStep(currentIdx - 1);
+        };
+        document.getElementById('btn-play').onclick = () => {
+            if (isPlaying) stopPlay();
+            else startPlay();
+        };
+
+        function startPlay() {
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停";
+            timer = setInterval(() => {
+                if (currentIdx < steps.length - 1) renderStep(currentIdx + 1);
+                else stopPlay();
+            }, 1000);
+        }
+
+        function stopPlay() {
+            isPlaying = false;
+            document.getElementById('btn-play').innerText = "自动播放";
+            clearInterval(timer);
+        }
+
+        window.onload = initUI;
+    </script>
+</body>
+</html>

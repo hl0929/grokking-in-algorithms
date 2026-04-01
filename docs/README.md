@@ -15,6 +15,8 @@
 
 [0026. 删除有序数组中的重复项](./content/0026_remove_duplicates_from_sorted_array.md)
 
+[0033. 搜索旋转排序数组](./content/0033_search_in_rotated_sorted_array.md)
+
 [0034. 在排序数组中查找元素的第一个和最后一个位置](./content/0034_find_first_and_last_position_of_element_in_sorted_array.md)
 
 [0049. 字母异位词分组](./content/0049_group_anagrams.md)
@@ -42,6 +44,8 @@
 [0239. 滑动窗口最大值](./content/0239_sliding_window_maximum.md)
 
 [0242. 有效的字母异位词](./content/0242_valid_anagram.md)
+
+[0287. 寻找重复数](./content/0287_find_the_duplicate_number.md)
 
 [0283. 移动零](./content/0283_move_zeroes.md)
 
