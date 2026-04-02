@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索二维矩阵 - 二分查找可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-width: 1px; }
+        
+        /* 指针高亮样式 */
+        .cell-left { background-color: #dcfce7 !important; border-color: #22c55e !important; border-width: 2px; }
+        .cell-right { background-color: #fee2e2 !important; border-color: #ef4444 !important; border-width: 2px; }
+        .cell-mid { background-color: #eff6ff !important; border-color: #3b82f6 !important; border-width: 3px; transform: scale(1.05); z-index: 20; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+        .cell-found { background-color: #fef9c3 !important; border-color: #eab308 !important; animation: bounce 0.5s ease; }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .ptr-badge {
+            position: absolute;
+            font-size: 8px;
+            font-weight: bold;
+            padding: 1px 3px;
+            border-radius: 3px;
+            color: white;
+            pointer-events: none;
+            z-index: 30;
+        }
+        .badge-left { background: #22c55e; top: -8px; left: 0; }
+        .badge-right { background: #ef4444; bottom: -8px; right: 0; }
+        .badge-mid { background: #3b82f6; top: -14px; left: 50%; transform: translateX(-50%); }
+
+        .code-line { transition: background-color 0.1s; position: relative; display: block; padding-left: 20px; line-height: 1.4; border-left: 3px solid transparent; white-space: pre; font-size: 11px; }
+        .code-active { background-color: #1e3a8a !important; color: #ffffff !important; border-left-color: #60a5fa; }
+        .code-active::before { content: '➔'; position: absolute; left: 4px; color: #60a5fa; font-size: 9px; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6 md:p-12">
+    <!-- 主容器：max-w-4xl 让页面更紧凑 -->
+    <div class="w-full max-w-4xl mx-auto flex flex-col gap-4">
+        
+        <!-- 顶部控制栏 -->
+        <div class="bg-white rounded-lg shadow-sm p-3 flex items-center justify-between border border-slate-200">
+            <div class="flex items-center gap-3">
+                <h2 class="font-bold text-slate-800 text-base">矩阵二分查找</h2>
+                <div class="flex bg-slate-100 p-1 rounded-md gap-1">
+                    <button id="case-1" class="px-2 py-0.5 text-[10px] rounded bg-white shadow-sm font-medium transition-all">用例 1</button>
+                    <button id="case-2" class="px-2 py-0.5 text-[10px] rounded text-slate-500 hover:text-slate-700 transition-all">用例 2</button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                <button id="btn-prev" class="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">上一步</button>
+                <button id="btn-play" class="px-4 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow font-medium min-w-[80px]">自动播放</button>
+                <button id="btn-next" class="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded hover:bg-slate-50">下一步</button>
+                <button id="btn-reset" class="p-1.5 text-slate-400 hover:text-slate-600" title="重置">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区：使用 3:2 的比例 -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <!-- 左侧可视化区 -->
+            <div class="md:col-span-3 flex flex-col gap-4">
+                <div class="bg-white rounded-lg shadow-sm p-6 border border-slate-200 flex flex-col items-center min-h-[340px]">
+                    <div class="w-full flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">可视化矩阵</span>
+                            <div id="target-display" class="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">Target: 3</div>
+                        </div>
+                        <div id="status-tag" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">等待开始</div>
+                    </div>
+
+                    <!-- 矩阵网格 -->
+                    <div id="matrix-grid" class="grid gap-2 mb-6"></div>
+
+                    <!-- 辅助说明 -->
+                    <div class="w-full mt-auto space-y-2">
+                        <div class="p-2 bg-blue-50 rounded border border-blue-100">
+                            <code class="text-[11px] font-mono text-blue-700">row = mid // cols; col = mid % cols</code>
+                        </div>
+                        <div id="logic-desc" class="text-[11px] text-slate-500 italic">
+                            点击下一步开始演示...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 指针数值显示 -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-white p-2.5 rounded border border-slate-200 text-center">
+                        <div class="text-[9px] text-green-500 font-bold uppercase">Left</div>
+                        <div id="val-left" class="text-xl font-mono font-bold text-slate-700">0</div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded border-b-2 border-blue-500 text-center shadow-sm">
+                        <div class="text-[9px] text-blue-500 font-bold uppercase">Mid</div>
+                        <div id="val-mid" class="text-xl font-mono font-bold text-slate-700">-</div>
+                    </div>
+                    <div class="bg-white p-2.5 rounded border border-slate-200 text-center">
+                        <div class="text-[9px] text-red-500 font-bold uppercase">Right</div>
+                        <div id="val-right" class="text-xl font-mono font-bold text-slate-700">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧代码追踪 -->
+            <div class="md:col-span-2 bg-slate-900 rounded-lg p-4 shadow-lg flex flex-col h-full min-h-[380px]">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <span class="text-slate-500 text-[9px] font-bold uppercase">Python 实现</span>
+                    <div id="step-counter" class="text-indigo-400 text-[9px] font-mono font-bold">0 / 0</div>
+                </div>
+                <pre id="code-trace" class="text-slate-300 font-mono overflow-y-auto custom-scrollbar flex-1">
+<span id="L0" class="code-line">def search_matrix(matrix, target):</span>
+<span id="L1" class="code-line">    m, n = len(matrix), len(matrix[0])</span>
+<span id="L2" class="code-line">    left, right = 0, m * n - 1</span>
+<span id="L3" class="code-line">    while left <= right:</span>
+<span id="L4" class="code-line">        mid = (left + right) // 2</span>
+<span id="L5" class="code-line">        row = mid // n</span>
+<span id="L6" class="code-line">        col = mid % n</span>
+<span id="L7" class="code-line">        val = matrix[row][col]</span>
+<span id="L8" class="code-line">        if val == target:</span>
+<span id="L9" class="code-line">            return True</span>
+<span id="L10" class="code-line">        elif val > target:</span>
+<span id="L11" class="code-line">            right = mid - 1</span>
+<span id="L12" class="code-line">        else:</span>
+<span id="L13" class="code-line">            left = mid + 1</span>
+<span id="L14" class="code-line">    return False</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let matrix = [[1, 3, 5, 7], [10, 11, 16, 20], [23, 30, 34, 60]];
+        let target = 3;
+        let steps = [];
+        let currentStepIdx = -1;
+        let isPlaying = false;
+        let playTimer = null;
+
+        function generateSteps(mat, tar) {
+            let res = [];
+            let m = mat.length;
+            let n = mat[0].length;
+            let left = 0, right = m * n - 1;
+            
+            res.push({ left, right, mid: null, row: null, col: null, msg: "初始化二分查找范围 [0, " + right + "]", line: "L2" });
+
+            while (left <= right) {
+                let mid = Math.floor((left + right) / 2);
+                let row = Math.floor(mid / n);
+                let col = mid % n;
+                let val = mat[row][col];
+
+                res.push({ left, right, mid, row, col, msg: `计算中点索引: mid = ${mid}`, line: "L4" });
+                res.push({ left, right, mid, row, col, msg: `坐标映射: [${row}, ${col}]`, line: "L6" });
+                res.push({ left, right, mid, row, col, val, msg: `取出数值 matrix[${row}][${col}] = ${val}`, line: "L7" });
+
+                if (val === tar) {
+                    res.push({ left, right, mid, row, col, val, found: true, msg: `找到目标值 ${tar}！`, line: "L9" });
+                    return res;
+                } else if (val > tar) {
+                    right = mid - 1;
+                    res.push({ left, right, mid, row, col, val, msg: `${val} > ${tar}, 右边界收缩至 ${right}`, line: "L11" });
+                } else {
+                    left = mid + 1;
+                    res.push({ left, right, mid, row, col, val, msg: `${val} < ${tar}, 左边界增加至 ${left}`, line: "L13" });
+                }
+            }
+            res.push({ left, right, mid: null, row: null, col: null, msg: "搜索完毕，未找到目标", line: "L14" });
+            return res;
+        }
+
+        function initView(mat, tar) {
+            matrix = mat;
+            target = tar;
+            steps = generateSteps(mat, tar);
+            
+            const grid = document.getElementById('matrix-grid');
+            const cols = mat[0].length;
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            grid.innerHTML = '';
+
+            mat.forEach((row, rIdx) => {
+                row.forEach((val, cIdx) => {
+                    const linearIdx = rIdx * cols + cIdx;
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${linearIdx}`;
+                    cell.className = 'cell w-12 h-12 md:w-14 md:h-14 bg-white border-slate-200 flex flex-col items-center justify-center rounded shadow-sm relative';
+                    cell.innerHTML = `
+                        <span class="text-[7px] text-slate-400 absolute top-0.5 left-0.5 font-mono">${linearIdx}</span>
+                        <span class="font-bold text-slate-700 text-sm">${val}</span>
+                        <div id="ptr-l-${linearIdx}" class="ptr-badge badge-left hidden">L</div>
+                        <div id="ptr-r-${linearIdx}" class="ptr-badge badge-right hidden">R</div>
+                        <div id="ptr-m-${linearIdx}" class="ptr-badge badge-mid hidden">M</div>
+                    `;
+                    grid.appendChild(cell);
+                });
+            });
+
+            document.getElementById('target-display').innerText = `Target: ${tar}`;
+            updateStep(0);
+        }
+
+        function updateStep(idx) {
+            if (idx < 0 || idx >= steps.length) return;
+            currentStepIdx = idx;
+            const step = steps[idx];
+            const maxIdx = matrix.length * matrix[0].length;
+
+            document.getElementById('btn-prev').disabled = idx === 0;
+            document.getElementById('step-counter').innerText = `${idx + 1} / ${steps.length}`;
+
+            document.querySelectorAll('.cell').forEach(c => {
+                c.classList.remove('cell-left', 'cell-right', 'cell-mid', 'cell-found');
+            });
+            document.querySelectorAll('.ptr-badge').forEach(p => p.classList.add('hidden'));
+
+            if (step.left >= 0 && step.left < maxIdx) {
+                const el = document.getElementById(`cell-${step.left}`);
+                if(el) el.classList.add('cell-left');
+                const badge = document.getElementById(`ptr-l-${step.left}`);
+                if(badge) badge.classList.remove('hidden');
+            }
+            if (step.right >= 0 && step.right < maxIdx) {
+                const el = document.getElementById(`cell-${step.right}`);
+                if(el) el.classList.add('cell-right');
+                const badge = document.getElementById(`ptr-r-${step.right}`);
+                if(badge) badge.classList.remove('hidden');
+            }
+            if (step.mid !== null && step.mid >= 0 && step.mid < maxIdx) {
+                const el = document.getElementById(`cell-${step.mid}`);
+                if(el) {
+                    el.classList.add('cell-mid');
+                    if (step.found) el.classList.add('cell-found');
+                }
+                const badge = document.getElementById(`ptr-m-${step.mid}`);
+                if(badge) badge.classList.remove('hidden');
+            }
+
+            document.getElementById('val-left').innerText = step.left;
+            document.getElementById('val-mid').innerText = step.mid !== null ? step.mid : '-';
+            document.getElementById('val-right').innerText = step.right;
+            document.getElementById('logic-desc').innerText = step.msg;
+            
+            const statusTag = document.getElementById('status-tag');
+            if (step.found) {
+                statusTag.innerText = "找到目标！";
+                statusTag.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700";
+            } else if (idx === steps.length - 1 && !step.found) {
+                statusTag.innerText = "未找到";
+                statusTag.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700";
+            } else {
+                statusTag.innerText = "搜索中...";
+                statusTag.className = "text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-500";
+            }
+
+            document.querySelectorAll('.code-line').forEach(line => line.classList.remove('code-active'));
+            if (step.line) {
+                const targetLine = document.getElementById(step.line);
+                if (targetLine) targetLine.classList.add('code-active');
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopPlay(); if (currentStepIdx < steps.length - 1) updateStep(currentStepIdx + 1); else updateStep(0); };
+        document.getElementById('btn-prev').onclick = () => { stopPlay(); updateStep(currentStepIdx - 1); };
+        document.getElementById('btn-reset').onclick = () => { stopPlay(); updateStep(0); };
+        document.getElementById('btn-play').onclick = () => { if (isPlaying) stopPlay(); else startPlay(); };
+
+        function startPlay() {
+            if (currentStepIdx === steps.length - 1) updateStep(0);
+            isPlaying = true;
+            document.getElementById('btn-play').innerText = "暂停";
+            playTimer = setInterval(() => {
+                if (currentStepIdx < steps.length - 1) updateStep(currentStepIdx + 1);
+                else stopPlay();
+            }, 800);
+        }
+
+        function stopPlay() {
+            isPlaying = false;
+            clearInterval(playTimer);
+            document.getElementById('btn-play').innerText = "自动播放";
+        }
+
+        document.getElementById('case-1').onclick = function() {
+            this.className = "px-2 py-0.5 text-[10px] rounded bg-white shadow-sm font-medium transition-all";
+            document.getElementById('case-2').className = "px-2 py-0.5 text-[10px] rounded text-slate-500 hover:text-slate-700 transition-all";
+            stopPlay(); initView([[1,3,5,7],[10,11,16,20],[23,30,34,60]], 3);
+        };
+        document.getElementById('case-2').onclick = function() {
+            this.className = "px-2 py-0.5 text-[10px] rounded bg-white shadow-sm font-medium transition-all";
+            document.getElementById('case-1').className = "px-2 py-0.5 text-[10px] rounded text-slate-500 hover:text-slate-700 transition-all";
+            stopPlay(); initView([[1,3,5,7],[10,11,16,20],[23,30,34,60]], 13);
+        };
+
+        window.onload = () => initView([[1,3,5,7],[10,11,16,20],[23,30,34,60]], 3);
+    </script>
+</body>
+</html>

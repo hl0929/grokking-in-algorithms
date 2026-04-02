@@ -29,6 +29,8 @@
 
 [0059. 螺旋矩阵II](./content/0059_spiral_matrix_ii.md)
 
+[0074. 搜索二维矩阵](./content/0074_search_a_2d_matrix.md)
+
 [0075. 颜色分类](./content/0075_sort_colors.md)
 
 [0076. 最小覆盖子串](./content/0076_minimum_window_substring.md)
