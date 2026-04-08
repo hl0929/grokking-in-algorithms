@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge Sort Detailed Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+        .comparing {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            transform: scale(1.1);
+        }
+        .merged-item {
+            animation: bounceIn 0.5s ease;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[600px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-sm leading-none">归并排序全过程细节</h1>
+                    <p id="status-text" class="text-blue-500 text-[10px] font-medium mt-1 uppercase tracking-tighter italic">准备开始...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+                    重新开始
+                </button>
+                <div class="h-4 w-px bg-slate-200 mx-1"></div>
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button id="btn-play" class="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-all shadow-md min-w-[80px]">
+                    自动播放
+                </button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Split -->
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+            
+            <!-- Visualization Area (Left) -->
+            <div class="flex-[1.5] p-6 flex flex-col gap-6 overflow-y-auto custom-scroll bg-white">
+                <!-- Linked List Canvas -->
+                <div class="bg-slate-50 rounded-xl border border-dashed border-slate-300 h-56 flex flex-col items-center justify-center relative p-4 overflow-x-auto gap-4">
+                    <!-- Top row: Sub-lists being compared -->
+                    <div id="sub-lists" class="flex gap-12"></div>
+                    
+                    <!-- Arrow indicating move to merged -->
+                    <div id="merge-arrow" class="opacity-0 transition-opacity duration-300">
+                        <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7-7-7"/></svg>
+                    </div>
+
+                    <!-- Bottom row: Main list / Result -->
+                    <div id="linked-list" class="flex items-center gap-2"></div>
+                </div>
+
+                <!-- Info Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white border border-slate-100 p-4 rounded-xl shadow-sm">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-400 font-black">逻辑阶段</span>
+                        <div id="phase-val" class="text-xl font-bold text-slate-800">初始化</div>
+                    </div>
+                    <div id="op-card" class="bg-white border border-slate-100 p-4 rounded-xl shadow-sm">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-400 font-black">当前对比</span>
+                        <div id="compare-val" class="text-xl font-bold text-indigo-600">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Tracer Area (Right) -->
+            <div class="flex-1 code-container border-l border-slate-800 flex flex-col">
+                <div class="p-3 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Code Execution</span>
+                    <span id="step-info" class="text-[10px] text-slate-400 font-mono">STEP 00/00</span>
+                </div>
+                <div id="code-viewport" class="flex-1 overflow-y-auto custom-scroll py-2 scroll-smooth">
+                    <code id="L1" class="code-line">def mergeSort(head):</code>
+                    <code id="L2" class="code-line">  if not head or not head.next: return head</code>
+                    <code id="L5" class="code-line">  # 分离 (Divide)</code>
+                    <code id="L6" class="code-line">  slow, fast = head, head.next</code>
+                    <code id="L7" class="code-line">  while fast and fast.next:</code>
+                    <code id="L8" class="code-line">    slow, fast = slow.next, fast.next.next</code>
+                    <code id="L11" class="code-line">  mid = slow.next; slow.next = None</code>
+                    <code id="L14" class="code-line">  left = mergeSort(head)</code>
+                    <code id="L15" class="code-line">  right = mergeSort(mid)</code>
+                    <code id="L17" class="code-line">  # 合并 (Merge)</code>
+                    <code id="L18" class="code-line">  return merge(left, right)</code>
+                    <code id="M1" class="code-line">def merge(l1, l2):</code>
+                    <code id="M2" class="code-line">  dummy = tail = Node(0)</code>
+                    <code id="M3" class="code-line">  while l1 and l2:</code>
+                    <code id="M4" class="code-line">    if l1.val < l2.val:</code>
+                    <code id="M5" class="code-line">      tail.next = l1; l1 = l1.next</code>
+                    <code id="M6" class="code-line">    else:</code>
+                    <code id="M7" class="code-line">      tail.next = l2; l2 = l2.next</code>
+                    <code id="M8" class="code-line">    tail = tail.next</code>
+                    <code id="M9" class="code-line">  tail.next = l1 or l2</code>
+                    <code id="M10" class="code-line">  return dummy.next</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const initialNodes = [4, 2, 1, 3];
+        let currentStep = 0;
+        let playTimer = null;
+
+        const steps = [
+            { line: "L1", msg: "开始排序链表 [4, 2, 1, 3]", phase: "初始化", list: [4, 2, 1, 3] },
+            { line: "L6", msg: "快慢指针寻找中点 (4为起点)", phase: "分离-寻找中点", list: [4, 2, 1, 3], s: 0, f: 1 },
+            { line: "L8", msg: "快指针移动两步，慢指针移动一步", phase: "分离-寻找中点", list: [4, 2, 1, 3], s: 1, f: 3 },
+            { line: "L11", msg: "从中点切断链表", phase: "分离-切断", list: [4, 2, 1, 3], splitIdx: 1 },
+            { line: "L14", msg: "递归处理左侧 [4, 2]", phase: "递归-左侧", list: [4, 2], splitIdx: 1 },
+            { line: "L15", msg: "递归处理右侧 [1, 3]", phase: "递归-右侧", list: [1, 3], splitIdx: 1 },
+            { line: "M3", msg: "开始合并 [2, 4] 和 [1, 3]", phase: "合并-开始", sub1: [2, 4], sub2: [1, 3], list: [] },
+            { line: "M4", msg: "比较左侧首项 2 和右侧首项 1", phase: "合并-对比", sub1: [2, 4], sub2: [1, 3], compare: [2, 1], list: [] },
+            { line: "M7", msg: "1 较小，将其移入合并链表", phase: "合并-移动", sub1: [2, 4], sub2: [3], list: [1], moving: 1 },
+            { line: "M4", msg: "再次比较：左侧 2 和右侧 3", phase: "合并-对比", sub1: [2, 4], sub2: [3], compare: [2, 3], list: [1] },
+            { line: "M5", msg: "2 较小，将其移入合并链表", phase: "合并-移动", sub1: [4], sub2: [3], list: [1, 2], moving: 2 },
+            { line: "M4", msg: "再次比较：左侧 4 和右侧 3", phase: "合并-对比", sub1: [4], sub2: [3], compare: [4, 3], list: [1, 2] },
+            { line: "M7", msg: "3 较小，将其移入", phase: "合并-移动", sub1: [4], sub2: [], list: [1, 2, 3], moving: 3 },
+            { line: "M9", msg: "右侧已空，直接连接左侧剩余部分 [4]", phase: "合并-收尾", sub1: [], sub2: [], list: [1, 2, 3, 4] },
+            { line: "L18", msg: "完成归并排序！", phase: "完成", list: [1, 2, 3, 4], done: true }
+        ];
+
+        function createNode(val, isHighlighted = false, isComparing = false) {
+            const node = document.createElement('div');
+            node.className = `node-box w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-sm shadow-sm relative shrink-0
+                ${isHighlighted ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-300 text-slate-700'}
+                ${isComparing ? 'comparing' : ''}`;
+            node.textContent = val;
+            return node;
+        }
+
+        function createArrow(isVisible = true, isBroken = false) {
+            const arrow = document.createElement('div');
+            arrow.className = `w-6 h-0.5 shrink-0 transition-all duration-500 relative flex items-center justify-center ${isVisible ? 'bg-slate-300' : 'bg-transparent'}`;
+            if (isBroken) {
+                arrow.innerHTML = `<span class="text-rose-500 font-bold text-lg animate-pulse">×</span>`;
+            } else if (isVisible) {
+                arrow.innerHTML = `<div class="absolute right-0 w-1.5 h-1.5 bg-slate-300 rounded-full"></div>`;
+            }
+            return arrow;
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const listContainer = document.getElementById('linked-list');
+            const subListsContainer = document.getElementById('sub-lists');
+            const mergeArrow = document.getElementById('merge-arrow');
+            
+            listContainer.innerHTML = '';
+            subListsContainer.innerHTML = '';
+            mergeArrow.style.opacity = step.sub1 ? '1' : '0';
+
+            // Render Sub-lists if in Merge phase
+            if (step.sub1 || step.sub2) {
+                const s1 = document.createElement('div');
+                s1.className = "flex items-center gap-2";
+                (step.sub1 || []).forEach((val, i) => {
+                    const isComp = step.compare && step.compare[0] === val && i === 0;
+                    s1.appendChild(createNode(val, false, isComp));
+                    if (i < step.sub1.length - 1) s1.appendChild(createArrow());
+                });
+
+                const s2 = document.createElement('div');
+                s2.className = "flex items-center gap-2";
+                (step.sub2 || []).forEach((val, i) => {
+                    const isComp = step.compare && step.compare[1] === val && i === 0;
+                    s2.appendChild(createNode(val, false, isComp));
+                    if (i < step.sub2.length - 1) s2.appendChild(createArrow());
+                });
+
+                subListsContainer.appendChild(s1);
+                subListsContainer.appendChild(s2);
+            }
+
+            // Render Main list
+            const data = step.list || [];
+            data.forEach((val, i) => {
+                const isMoving = step.moving === val;
+                const node = createNode(val, step.done, false);
+                if (isMoving) node.classList.add('merged-item');
+                
+                // Pointers
+                if (step.s === i) node.innerHTML += `<div class="absolute -top-7 text-[10px] font-black text-emerald-600 flex flex-col items-center"><span>S</span><div class="w-0.5 h-1.5 bg-emerald-500"></div></div>`;
+                if (step.f === i) node.innerHTML += `<div class="absolute -bottom-7 text-[10px] font-black text-rose-600 flex flex-col items-center"><div class="w-0.5 h-1.5 bg-rose-500"></div><span>F</span></div>`;
+
+                listContainer.appendChild(node);
+
+                if (i < data.length - 1) {
+                    const isBroken = step.splitIdx === i;
+                    listContainer.appendChild(createArrow(!isBroken, isBroken));
+                }
+            });
+
+            // Update UI Counters
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('phase-val').innerText = step.phase;
+            document.getElementById('compare-val').innerText = step.compare ? `${step.compare[0]} vs ${step.compare[1]}` : "-";
+            document.getElementById('step-info').innerText = `STEP ${String(currentStep + 1).padStart(2, '0')}/${String(steps.length).padStart(2, '0')}`;
+
+            // Code Highlighting
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            const activeLine = document.getElementById(step.line);
+            if (activeLine) {
+                activeLine.classList.add('active');
+                const viewport = document.getElementById('code-viewport');
+                const offset = activeLine.offsetTop - (viewport.offsetHeight / 2);
+                viewport.scrollTop = Math.max(0, offset);
+            }
+        }
+
+        // --- Controls ---
+        const btnPlay = document.getElementById('btn-play');
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnReset = document.getElementById('btn-reset');
+
+        function stopAutoPlay() {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                btnPlay.innerText = "自动播放";
+                btnPlay.classList.replace('bg-rose-600', 'bg-slate-800');
+            }
+        }
+
+        btnPlay.onclick = () => {
+            if (playTimer) stopAutoPlay();
+            else {
+                if (currentStep >= steps.length - 1) currentStep = -1;
+                btnPlay.innerText = "暂停播放";
+                btnPlay.classList.replace('bg-slate-800', 'bg-rose-600');
+                playTimer = setInterval(() => {
+                    if (currentStep < steps.length - 1) { currentStep++; render(); }
+                    else stopAutoPlay();
+                }, 1200);
+            }
+        };
+
+        btnNext.onclick = () => { stopAutoPlay(); if (currentStep < steps.length - 1) { currentStep++; render(); } };
+        btnPrev.onclick = () => { stopAutoPlay(); if (currentStep > 0) { currentStep--; render(); } };
+        btnReset.onclick = () => { stopAutoPlay(); currentStep = 0; render(); document.getElementById('code-viewport').scrollTop = 0; };
+
+        render();
+    </script>
+</body>
+</html>

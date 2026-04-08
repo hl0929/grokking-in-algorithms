@@ -39,6 +39,8 @@
 
 [0128. 最长连续序列](./content/0128_longest_consecutive_sequence.md)
 
+[0148. 排序链表](./content/0148_sort_list.md)
+
 [0202. 快乐数](./content/0202_happy_number.md)
 
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
