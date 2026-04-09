@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Two Numbers Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        .code-line {
+            display: block;
+            padding: 1px 12px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+        .node-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+        .carry-box {
+            transition: all 0.3s ease;
+        }
+        .node-new {
+            animation: nodePop 0.5s ease-out;
+        }
+        @keyframes nodePop {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[650px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">2</div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-sm leading-none">两数相加 (Add Two Numbers)</h1>
+                    <p id="status-text" class="text-blue-500 text-[10px] font-medium mt-1 uppercase tracking-wider italic">准备就绪</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+                    重新开始
+                </button>
+                <div class="h-4 w-px bg-slate-200 mx-1"></div>
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button id="btn-play" class="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-all shadow-md min-w-[80px]">
+                    自动播放
+                </button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+            
+            <!-- Visualization Area -->
+            <div class="flex-[1.8] p-6 flex flex-col gap-4 overflow-y-auto custom-scroll bg-white">
+                
+                <!-- L1 Row -->
+                <div class="flex items-center gap-4">
+                    <div class="w-12 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">L1</div>
+                    <div id="l1-container" class="flex items-center gap-2 h-16"></div>
+                </div>
+
+                <!-- L2 Row -->
+                <div class="flex items-center gap-4">
+                    <div class="w-12 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">L2</div>
+                    <div id="l2-container" class="flex items-center gap-2 h-16"></div>
+                </div>
+
+                <div class="h-px bg-slate-100 my-2"></div>
+
+                <!-- Result Row -->
+                <div class="flex items-center gap-4">
+                    <div class="w-12 text-[10px] font-bold text-indigo-500 uppercase tracking-widest text-right">RES</div>
+                    <div id="res-container" class="flex items-center gap-2 h-16"></div>
+                </div>
+
+                <!-- Calculation Panel -->
+                <div class="mt-4 grid grid-cols-4 gap-4">
+                    <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl shadow-sm text-center">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-400 font-black block">v1 + v2 + carry</span>
+                        <div id="calc-total" class="text-xl font-mono font-bold text-slate-800">-</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl shadow-sm text-center">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-400 font-black block">New Node</span>
+                        <div id="calc-val" class="text-xl font-mono font-bold text-blue-600">-</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl shadow-sm text-center">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-400 font-black block">New Carry</span>
+                        <div id="calc-carry" class="text-xl font-mono font-bold text-rose-600">0</div>
+                    </div>
+                    <div class="bg-blue-600 p-3 rounded-xl shadow-md text-center flex flex-col justify-center">
+                        <span class="text-[9px] uppercase tracking-widest text-blue-100 font-black block">Current Sum</span>
+                        <div id="calc-display" class="text-lg font-bold text-white">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Tracer -->
+            <div class="flex-1 code-container border-l border-slate-800 flex flex-col">
+                <div class="p-3 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Logic Tracer</span>
+                    <span id="step-info" class="text-[10px] text-slate-400 font-mono">STEP 00/00</span>
+                </div>
+                <div id="code-viewport" class="flex-1 overflow-y-auto custom-scroll py-2 scroll-smooth">
+                    <code id="L1" class="code-line">def add_two_number(l1, l2):</code>
+                    <code id="L2" class="code-line">    dummy = ListNode()</code>
+                    <code id="L3" class="code-line">    curr = dummy</code>
+                    <code id="L4" class="code-line">    carry = 0</code>
+                    <code id="L5" class="code-line">    while l1 or l2 or carry:</code>
+                    <code id="L6" class="code-line">        v1 = l1.val if l1 else 0</code>
+                    <code id="L7" class="code-line">        v2 = l2.val if l2 else 0</code>
+                    <code id="L8" class="code-line">        total = v1 + v2 + carry</code>
+                    <code id="L9" class="code-line">        carry = total // 10</code>
+                    <code id="L10" class="code-line">        curr.next = ListNode(total % 10)</code>
+                    <code id="L11" class="code-line">        curr = curr.next</code>
+                    <code id="L12" class="code-line">        l1 = l1.next if l1 else None</code>
+                    <code id="L13" class="code-line">        l2 = l2.next if l2 else None</code>
+                    <code id="L14" class="code-line">    return dummy.next</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const l1_data = [2, 4, 3];
+        const l2_data = [5, 6, 4];
+        
+        let currentStep = 0;
+        let playTimer = null;
+
+        // 手动推导每一步的状态
+        const steps = [
+            { line: "L2", msg: "初始化 dummy 节点", c: 0, l1p: null, l2p: null, res: [], phase: "INIT" },
+            { line: "L4", msg: "设置初始进位 carry = 0", c: 0, l1p: null, l2p: null, res: [], phase: "INIT" },
+            
+            // Loop 1
+            { line: "L6", msg: "读取 L1 当前值: 2", v1: 2, c: 0, l1p: 0, l2p: null, res: [] },
+            { line: "L7", msg: "读取 L2 当前值: 5", v1: 2, v2: 5, c: 0, l1p: 0, l2p: 0, res: [] },
+            { line: "L8", msg: "计算 total = 2 + 5 + 0 = 7", v1: 2, v2: 5, t: 7, c: 0, l1p: 0, l2p: 0, res: [] },
+            { line: "L10", msg: "创建新节点 7 并链接", v1: 2, v2: 5, t: 7, c: 0, l1p: 0, l2p: 0, res: [7], new: true },
+            
+            // Loop 2
+            { line: "L6", msg: "读取 L1 当前值: 4", v1: 4, c: 0, l1p: 1, l2p: 0, res: [7] },
+            { line: "L7", msg: "读取 L2 当前值: 6", v1: 4, v2: 6, c: 0, l1p: 1, l2p: 1, res: [7] },
+            { line: "L8", msg: "计算 total = 4 + 6 + 0 = 10", v1: 4, v2: 6, t: 10, c: 0, l1p: 1, l2p: 1, res: [7] },
+            { line: "L9", msg: "更新进位 carry = 10 // 10 = 1", v1: 4, v2: 6, t: 10, c: 1, l1p: 1, l2p: 1, res: [7] },
+            { line: "L10", msg: "创建新节点 0 (10%10) 并链接", v1: 4, v2: 6, t: 10, c: 1, l1p: 1, l2p: 1, res: [7, 0], new: true },
+            
+            // Loop 3
+            { line: "L6", msg: "读取 L1 当前值: 3", v1: 3, c: 1, l1p: 2, l2p: 1, res: [7, 0] },
+            { line: "L7", msg: "读取 L2 当前值: 4", v1: 3, v2: 4, c: 1, l1p: 2, l2p: 2, res: [7, 0] },
+            { line: "L8", msg: "计算 total = 3 + 4 + 1 = 8", v1: 3, v2: 4, t: 8, c: 1, l1p: 2, l2p: 2, res: [7, 0] },
+            { line: "L9", msg: "更新进位 carry = 8 // 10 = 0", v1: 3, v2: 4, t: 8, c: 0, l1p: 2, l2p: 2, res: [7, 0] },
+            { line: "L10", msg: "创建新节点 8 (8%10) 并链接", v1: 3, v2: 4, t: 8, c: 0, l1p: 2, l2p: 2, res: [7, 0, 8], new: true },
+            
+            { line: "L14", msg: "返回结果链表 [7, 0, 8]", c: 0, l1p: null, l2p: null, res: [7, 0, 8], done: true }
+        ];
+
+        function createNode(val, isActive = false, isNew = false) {
+            const div = document.createElement('div');
+            div.className = `node-box w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-sm shadow-sm shrink-0 
+                ${isActive ? 'node-active border-blue-500' : 'bg-white border-slate-200 text-slate-600'}
+                ${isNew ? 'node-new' : ''}`;
+            div.textContent = val;
+            return div;
+        }
+
+        function createArrow() {
+            const arrow = document.createElement('div');
+            arrow.className = `w-4 h-0.5 bg-slate-200 shrink-0 relative flex items-center`;
+            arrow.innerHTML = `<div class="absolute right-0 w-1 h-1 bg-slate-200 rounded-full"></div>`;
+            return arrow;
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            
+            const l1c = document.getElementById('l1-container');
+            const l2c = document.getElementById('l2-container');
+            const resc = document.getElementById('res-container');
+
+            // Render L1
+            l1c.innerHTML = '';
+            l1_data.forEach((v, i) => {
+                l1c.appendChild(createNode(v, step.l1p === i));
+                if (i < l1_data.length - 1) l1c.appendChild(createArrow());
+            });
+
+            // Render L2
+            l2c.innerHTML = '';
+            l2_data.forEach((v, i) => {
+                l2c.appendChild(createNode(v, step.l2p === i));
+                if (i < l2_data.length - 1) l2c.appendChild(createArrow());
+            });
+
+            // Render Result
+            resc.innerHTML = '';
+            // Dummy Node always shown
+            const dummyNode = createNode('D', false);
+            dummyNode.classList.add('opacity-40');
+            resc.appendChild(dummyNode);
+            resc.appendChild(createArrow());
+
+            step.res.forEach((v, i) => {
+                const isNew = step.new && i === step.res.length - 1;
+                resc.appendChild(createNode(v, i === step.res.length - 1 && !step.done, isNew));
+                if (i < step.res.length - 1 || step.done) resc.appendChild(createArrow());
+            });
+
+            // Update Calculations
+            document.getElementById('calc-total').textContent = step.t !== undefined ? step.t : '-';
+            document.getElementById('calc-val').textContent = step.t !== undefined ? step.t % 10 : '-';
+            document.getElementById('calc-carry').textContent = step.c;
+            document.getElementById('calc-display').textContent = step.res.join(' → ') || '0';
+            
+            document.getElementById('status-text').textContent = step.msg;
+            document.getElementById('step-info').textContent = `STEP ${String(currentStep + 1).padStart(2, '0')}/${String(steps.length).padStart(2, '0')}`;
+
+            // Code Highlighting
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            const activeLine = document.getElementById(step.line);
+            if (activeLine) {
+                activeLine.classList.add('active');
+                const viewport = document.getElementById('code-viewport');
+                viewport.scrollTop = activeLine.offsetTop - 50;
+            }
+        }
+
+        const btnPlay = document.getElementById('btn-play');
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnReset = document.getElementById('btn-reset');
+
+        function stop() {
+            clearInterval(playTimer);
+            playTimer = null;
+            btnPlay.innerText = "自动播放";
+            btnPlay.classList.replace('bg-rose-600', 'bg-slate-800');
+        }
+
+        btnPlay.onclick = () => {
+            if (playTimer) stop();
+            else {
+                btnPlay.innerText = "暂停播放";
+                btnPlay.classList.replace('bg-slate-800', 'bg-rose-600');
+                playTimer = setInterval(() => {
+                    if (currentStep < steps.length - 1) { currentStep++; render(); }
+                    else stop();
+                }, 1200);
+            }
+        };
+
+        btnNext.onclick = () => { stop(); if (currentStep < steps.length - 1) { currentStep++; render(); } };
+        btnPrev.onclick = () => { stop(); if (currentStep > 0) { currentStep--; render(); } };
+        btnReset.onclick = () => { stop(); currentStep = 0; render(); };
+
+        render();
+    </script>
+</body>
+</html>

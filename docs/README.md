@@ -3,6 +3,8 @@
 
 [0001. 两数之和](./content/0001_two_sum.md)
 
+[0002. 两数相加](./content/0002_add_two_numbers.md)
+
 [0003. 无重复字符的最长子串](./content/0003_longest_substring_without_repeating_characters.md)
 
 [0004. 寻找两个正序数组的中位数](./content/0004_median_of_two_sorted_arrays.md)
@@ -12,6 +14,8 @@
 [0014. 最长公共前缀](./content/0014_longest_common_prefix.md)
 
 [0015. 三数之和](./content/0015_3_sum.md)
+
+[0021. 合并两个有序链表](./content/0021_merge_two_sorted_list.md)
 
 [0026. 删除有序数组中的重复项](./content/0026_remove_duplicates_from_sorted_array.md)
 
@@ -44,6 +48,8 @@
 [0202. 快乐数](./content/0202_happy_number.md)
 
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
+
+[0234. 回文链表](./content/0234_palindrome_linked_list.md)
 
 [0239. 滑动窗口最大值](./content/0239_sliding_window_maximum.md)
 

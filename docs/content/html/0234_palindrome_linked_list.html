@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回文链表算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-line { 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            transition: all 0.2s ease;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            white-space: pre;
+            color: #475569;
+        }
+        .active-line { 
+            background-color: #dbeafe; 
+            color: #1e40af; 
+            font-weight: 600;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
+
+<div class="bg-white w-full max-w-6xl h-auto min-h-[600px] rounded-2xl shadow-xl flex flex-col overflow-hidden border border-gray-200">
+    <!-- Header -->
+    <div class="bg-gray-100 p-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2">
+            <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div class="w-3 h-3 rounded-full bg-green-400"></div>
+            </div>
+            <h1 class="text-gray-800 font-bold ml-4">回文链表算法可视化</h1>
+        </div>
+        <div class="text-gray-500 text-sm font-medium" id="phase-indicator">阶段: 准备开始</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+        <!-- Code Section -->
+        <div class="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-gray-200 p-6 bg-gray-50/50 overflow-y-auto max-h-[300px] md:max-h-full">
+            <div class="text-[10px] text-gray-400 mb-4 uppercase tracking-widest font-bold">Python 实现</div>
+            <div id="code-block" class="text-sm space-y-1">
+<div id="L1" class="code-line">def is_palindrome(head):</div>
+<div id="L2" class="code-line">    # 1. 找中点 (快慢指针)</div>
+<div id="L3" class="code-line">    slow = fast = head</div>
+<div id="L4" class="code-line">    while fast and fast.next:</div>
+<div id="L5" class="code-line">        slow = slow.next</div>
+<div id="L6" class="code-line">        fast = fast.next.next</div>
+<div id="L7" class="code-line"></div>
+<div id="L8" class="code-line">    # 2. 反转后半部分</div>
+<div id="L9" class="code-line">    prev, curr = None, slow</div>
+<div id="L10" class="code-line">    while curr:</div>
+<div id="L11" class="code-line">        nxt = curr.next</div>
+<div id="L12" class="code-line">        curr.next = prev</div>
+<div id="L13" class="code-line">        prev = curr</div>
+<div id="L14" class="code-line">        curr = nxt</div>
+<div id="L15" class="code-line"></div>
+<div id="L16" class="code-line">    # 3. 比较左右两段</div>
+<div id="L17" class="code-line">    left, right = head, prev</div>
+<div id="L18" class="code-line">    while right:</div>
+<div id="L19" class="code-line">        if left.val != right.val:</div>
+<div id="L20" class="code-line">            return False</div>
+<div id="L21" class="code-line">        left = left.next</div>
+<div id="L22" class="code-line">        right = right.next</div>
+<div id="L23" class="code-line">    return True</div>
+            </div>
+        </div>
+
+        <!-- Canvas Section -->
+        <div class="flex-1 flex flex-col p-6 min-h-[400px]">
+            <div id="canvas-container" class="flex-1 relative bg-white rounded-xl border border-gray-100 shadow-inner">
+                <canvas id="mainCanvas"></canvas>
+            </div>
+            
+            <!-- Controls -->
+            <div class="mt-6 flex flex-col gap-4 shrink-0">
+                <div id="explanation" class="text-blue-700 text-sm bg-blue-50 p-4 rounded-xl border border-blue-100 min-h-[60px]">
+                    欢迎！点击“下一步”开始分析链表 [1 → 2 → 2 → 1]。
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex gap-3">
+                        <button id="prevBtn" class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 disabled:opacity-40 transition-all font-semibold shadow-sm">上一步</button>
+                        <button id="nextBtn" class="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-all font-semibold shadow-md">下一步</button>
+                    </div>
+                    <button id="resetBtn" class="text-gray-400 hover:text-gray-600 font-medium text-sm transition-colors">重置演示</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const nodeValues = [1, 2, 2, 1];
+    let currentStepIndex = 0;
+
+    const steps = [
+        { lines: [3], phase: "初始化", slow: 0, fast: 0, desc: "初始化：slow 和 fast 同时指向链表头结点。" },
+        { lines: [4, 5, 6], phase: "找中点", slow: 1, fast: 2, desc: "寻找中点：fast 每次移动两步，slow 移动一步。" },
+        { lines: [4, 5, 6], phase: "找中点", slow: 2, fast: 4, desc: "fast 已经到达末尾(None)，循环结束。此时 slow 正好处于后半段的起始位置。" },
+        { lines: [9], phase: "反转准备", slow: 2, curr: 2, prev: -1, desc: "准备反转：设置 prev 为空，curr 指向 slow 所在的节点。" },
+        { lines: [11, 12, 13, 14], phase: "反转中", curr: 3, prev: 2, rev: [2], desc: "反转：将当前节点的 next 指向前一个节点(prev)。" },
+        { lines: [11, 12, 13, 14], phase: "反转中", curr: 4, prev: 3, rev: [2, 3], desc: "继续反转：curr 移动到末尾，prev 成为反转后新链表的头。" },
+        { lines: [17], phase: "比较准备", left: 0, right: 3, rev: [2, 3], desc: "比较：left 回到头结点，right 指向反转后的尾部节点。" },
+        { lines: [18, 19, 21, 22], phase: "双向比较", left: 1, right: 2, rev: [2, 3], desc: "第一对节点值均为 1，匹配成功。左右指针向中间靠拢。" },
+        { lines: [18, 19, 21, 22], phase: "双向比较", left: 2, right: 4, rev: [2, 3], desc: "第二对节点值均为 2，匹配成功。right 到达 None，比较完成。" },
+        { lines: [23], phase: "完成", result: true, rev: [2, 3], desc: "全部节点匹配，该链表确认为回文结构！" }
+    ];
+
+    function resize() {
+        const container = document.getElementById('canvas-container');
+        // 获取实际显示的尺寸
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        render();
+    }
+
+    function drawArrow(x1, y1, x2, y2, color = '#94a3b8') {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        ctx.save();
+        ctx.translate(x2, y2);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-10, -5);
+        ctx.lineTo(-10, 5);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const step = steps[currentStepIndex];
+        const padding = 60;
+        const nodeGap = (canvas.width - padding * 2) / (nodeValues.length - 1);
+        const centerY = canvas.height / 2;
+
+        document.getElementById('phase-indicator').innerText = `阶段: ${step.phase}`;
+        document.getElementById('explanation').innerText = step.desc;
+        
+        document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active-line'));
+        step.lines.forEach(lineNum => {
+            const line = document.getElementById(`L${lineNum}`);
+            if(line) line.classList.add('active-line');
+        });
+
+        // 绘制物理连接
+        for (let i = 0; i < nodeValues.length; i++) {
+            const x = padding + i * nodeGap;
+            const nextX = x + nodeGap;
+            const isReversed = step.rev && step.rev.includes(i);
+            
+            if (isReversed) {
+                if (i === 2) { 
+                    drawArrow(x, centerY + 28, x, centerY + 70, '#f87171');
+                    ctx.fillStyle = '#f87171';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText('None', x, centerY + 90);
+                } else if (i === 3) { 
+                    drawArrow(x - 20, centerY + 10, x - nodeGap + 20, centerY + 10, '#f87171');
+                }
+            } else if (i < nodeValues.length - 1) {
+                drawArrow(x + 30, centerY, nextX - 30, centerY, '#cbd5e1');
+            } else {
+                drawArrow(x + 30, centerY, x + 60, centerY, '#cbd5e1');
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('None', x + 85, centerY + 4);
+            }
+        }
+
+        // 绘制节点
+        nodeValues.forEach((val, i) => {
+            const x = padding + i * nodeGap;
+            
+            ctx.beginPath();
+            ctx.arc(x, centerY, 28, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.05)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(val, x, centerY);
+
+            const drawLabel = (label, color, yOffset, isBelow = false) => {
+                const pointerY = isBelow ? centerY + 35 : centerY - 35;
+                const lineEnd = isBelow ? centerY + 65 : centerY - 65;
+                ctx.beginPath();
+                ctx.moveTo(x, pointerY);
+                ctx.lineTo(x, lineEnd);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = color;
+                ctx.font = 'bold 13px monospace';
+                ctx.fillText(label, x, isBelow ? lineEnd + 15 : lineEnd - 12);
+            };
+
+            if (step.slow === i) drawLabel('slow', '#10b981', -40);
+            if (step.fast === i) drawLabel('fast', '#8b5cf6', 40, true);
+            if (step.curr === i) drawLabel('curr', '#f59e0b', 40, true);
+            if (step.prev === i) drawLabel('prev', '#ef4444', -40);
+            if (step.left === i) drawLabel('left', '#10b981', -40);
+            if (step.right === i) drawLabel('right', '#ef4444', 40, true);
+        });
+
+        // 处理落在 None 上的指针
+        const nonePos = padding + 4 * nodeGap - 30;
+        if (step.fast === 4) { ctx.fillStyle = '#8b5cf6'; ctx.fillText('fast ↑', nonePos + 30, centerY + 50); }
+        if (step.curr === 4) { ctx.fillStyle = '#f59e0b'; ctx.fillText('curr ↑', nonePos + 30, centerY + 68); }
+        if (step.right === 4) { ctx.fillStyle = '#ef4444'; ctx.fillText('right ↑', nonePos + 30, centerY + 86); }
+
+        document.getElementById('prevBtn').disabled = currentStepIndex === 0;
+        document.getElementById('nextBtn').disabled = currentStepIndex === steps.length - 1;
+    }
+
+    document.getElementById('nextBtn').onclick = () => { if (currentStepIndex < steps.length - 1) { currentStepIndex++; render(); } };
+    document.getElementById('prevBtn').onclick = () => { if (currentStepIndex > 0) { currentStepIndex--; render(); } };
+    document.getElementById('resetBtn').onclick = () => { currentStepIndex = 0; render(); };
+
+    window.addEventListener('resize', resize);
+    window.onload = resize;
+</script>
+</body>
+</html>
