@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linked List Cycle Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 4px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .pointer-label {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20;
+        }
+        .meet-glow {
+            animation: pulse-gold 1.5s infinite;
+            border-color: #fbbf24 !important;
+            box-shadow: 0 0 20px #fbbf24;
+        }
+        @keyframes pulse-gold {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .path-line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw 2s ease forwards;
+        }
+        @keyframes draw { to { stroke-dashoffset: 0; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[650px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 p-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-amber-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-none">链表判环 (龟兔赛跑算法)</h1>
+                    <p id="status-text" class="text-amber-600 text-xs font-medium mt-1.5 uppercase tracking-wider italic">检测是否存在循环</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-reset" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200">重置</button>
+                <div class="h-6 w-px bg-slate-200 mx-1"></div>
+                <button id="btn-prev" class="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 border border-transparent">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button id="btn-play" class="bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg min-w-[100px]">自动播放</button>
+                <button id="btn-next" class="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 border border-transparent">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Body -->
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+            
+            <!-- Visualization (Left) -->
+            <div class="flex-[1.6] p-8 flex flex-col bg-white overflow-hidden relative">
+                <!-- SVG Connector Container -->
+                <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;"></svg>
+
+                <div id="nodes-container" class="flex-1 flex items-center justify-center relative min-h-[350px]">
+                    <!-- Nodes will be positioned here absolutely -->
+                </div>
+
+                <!-- Info Cards -->
+                <div class="grid grid-cols-3 gap-4 relative z-10">
+                    <div class="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">当前状态</span>
+                        <div id="phase-val" class="text-base font-bold text-slate-800 mt-1 italic">等待初始化</div>
+                    </div>
+                    <div class="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Fast (快指针)</span>
+                        <div id="fast-pos" class="text-base font-bold text-rose-500 mt-1">-</div>
+                    </div>
+                    <div class="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Slow (慢指针)</span>
+                        <div id="slow-pos" class="text-base font-bold text-emerald-500 mt-1">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code (Right) -->
+            <div class="flex-1 code-container border-l border-slate-100 flex flex-col">
+                <div class="p-4 border-b border-slate-800/50 bg-slate-900/30 flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Python Logic</span>
+                    <span id="step-counter" class="text-[11px] text-slate-400 font-mono">STEP 00/00</span>
+                </div>
+                <div id="code-viewport" class="flex-1 overflow-y-auto py-4 scroll-smooth">
+                    <code id="L1" class="code-line">def has_cycle(head):</code>
+                    <code id="L2" class="code-line">    slow = fast = head</code>
+                    <code id="L3" class="code-line">    while fast and fast.next:</code>
+                    <code id="L4" class="code-line">        slow = slow.next</code>
+                    <code id="L5" class="code-line">        fast = fast.next.next</code>
+                    <code id="L6" class="code-line">        if slow == fast:</code>
+                    <code id="L7" class="code-line">            return True</code>
+                    <code id="L8" class="code-line">    return False</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 定义链表结构：0->1->2->3->(回到1)
+        const nodesData = [
+            { id: 0, val: 1, x: 100, y: 175 },
+            { id: 1, val: 2, x: 220, y: 175 },
+            { id: 2, val: 3, x: 340, y: 100 },
+            { id: 3, val: 4, x: 340, y: 250 },
+        ];
+        // 映射：0->1, 1->2, 2->3, 3->1 (环)
+        const nextMap = { 0: 1, 1: 2, 2: 3, 3: 1 };
+
+        let currentStep = 0;
+        let playTimer = null;
+
+        const steps = [
+            { line: "L1", msg: "开始检测链表是否有环", phase: "开始", fast: null, slow: null },
+            { line: "L2", msg: "初始化 slow, fast 指针指向头节点", phase: "初始化", fast: 0, slow: 0 },
+            { line: "L3", msg: "检查 fast 指针是否到达终点", phase: "检查条件", fast: 0, slow: 0 },
+            { line: "L4", msg: "slow 走一步", phase: "移动", fast: 0, slow: 1 },
+            { line: "L5", msg: "fast 走两步", phase: "移动", fast: 2, slow: 1 },
+            { line: "L6", msg: "检查 slow 是否等于 fast", phase: "对比", fast: 2, slow: 1 },
+            { line: "L4", msg: "slow 走一步", phase: "移动", fast: 2, slow: 2 },
+            { line: "L5", msg: "fast 走两步 (跨过环)", phase: "移动", fast: 1, slow: 2 },
+            { line: "L6", msg: "检查 slow 是否等于 fast", phase: "对比", fast: 1, slow: 2 },
+            { line: "L4", msg: "slow 走一步", phase: "移动", fast: 1, slow: 3 },
+            { line: "L5", msg: "fast 走两步", phase: "移动", fast: 3, slow: 3 },
+            { line: "L6", msg: "slow == fast! 检测到环", phase: "碰撞检测", fast: 3, slow: 3, meet: true },
+            { line: "L7", msg: "算法返回 True", phase: "完成", fast: 3, slow: 3, meet: true }
+        ];
+
+        function render() {
+            const step = steps[currentStep];
+            const container = document.getElementById('nodes-container');
+            const svgLayer = document.getElementById('svg-layer');
+            
+            // Clear and Render Links
+            svgLayer.innerHTML = '';
+            Object.keys(nextMap).forEach(fromId => {
+                const toId = nextMap[fromId];
+                const from = nodesData[fromId];
+                const to = nodesData[toId];
+                
+                const isBackLink = (fromId == 3 && toId == 1);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                let d;
+                if (isBackLink) {
+                    // 绘制曲线表示回环
+                    d = `M ${from.x + 25} ${from.y} C ${from.x + 80} ${from.y}, ${to.x + 80} ${to.y}, ${to.x + 25} ${to.y}`;
+                } else {
+                    d = `M ${from.x + 25} ${from.y} L ${to.x - 25} ${to.y}`;
+                }
+                
+                path.setAttribute("d", d);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", "#e2e8f0");
+                path.setAttribute("stroke-width", "3");
+                path.setAttribute("class", "path-line");
+                
+                // 给环内路径加点颜色
+                if (fromId != 0) path.setAttribute("stroke", "#f1f5f9");
+
+                svgLayer.appendChild(path);
+            });
+
+            // Render Nodes
+            container.innerHTML = '';
+            nodesData.forEach(node => {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = `node-box absolute w-12 h-12 rounded-2xl border-2 border-slate-800 bg-white flex items-center justify-center font-bold text-sm shadow-md z-10
+                    ${step.meet && (step.fast === node.id) ? 'meet-glow' : ''}`;
+                nodeEl.style.left = `${node.x - 24}px`;
+                nodeEl.style.top = `${node.y - 24}px`;
+                nodeEl.textContent = node.val;
+
+                // Pointer Tags
+                if (step.fast === node.id) {
+                    const tag = document.createElement('div');
+                    tag.className = "pointer-label absolute -top-10 left-1/2 -translate-x-1/2 flex flex-col items-center";
+                    tag.innerHTML = `<span class="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm font-bold">FAST</span><div class="w-0.5 h-3 bg-rose-500"></div>`;
+                    nodeEl.appendChild(tag);
+                }
+                if (step.slow === node.id) {
+                    const tag = document.createElement('div');
+                    tag.className = "pointer-label absolute -bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center";
+                    tag.innerHTML = `<div class="w-0.5 h-3 bg-emerald-500"></div><span class="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm font-bold">SLOW</span>`;
+                    nodeEl.appendChild(tag);
+                }
+
+                container.appendChild(nodeEl);
+            });
+
+            // Status Update
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('phase-val').innerText = step.phase;
+            document.getElementById('fast-pos').innerText = step.fast !== null ? `Node ${nodesData[step.fast].val}` : '-';
+            document.getElementById('slow-pos').innerText = step.slow !== null ? `Node ${nodesData[step.slow].val}` : '-';
+            document.getElementById('step-counter').innerText = `STEP ${String(currentStep + 1).padStart(2, '0')}/${String(steps.length).padStart(2, '0')}`;
+
+            // Code highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        // Controls
+        const btnPlay = document.getElementById('btn-play');
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnReset = document.getElementById('btn-reset');
+
+        function stopAutoPlay() {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                btnPlay.innerText = "自动播放";
+                btnPlay.classList.replace('bg-rose-600', 'bg-slate-900');
+            }
+        }
+
+        btnPlay.onclick = () => {
+            if (playTimer) stopAutoPlay();
+            else {
+                if (currentStep >= steps.length - 1) currentStep = -1;
+                btnPlay.innerText = "暂停";
+                btnPlay.classList.replace('bg-slate-900', 'bg-rose-600');
+                playTimer = setInterval(() => {
+                    if (currentStep < steps.length - 1) { currentStep++; render(); }
+                    else stopAutoPlay();
+                }, 1000);
+            }
+        };
+
+        btnNext.onclick = () => { stopAutoPlay(); if (currentStep < steps.length - 1) { currentStep++; render(); } };
+        btnPrev.onclick = () => { stopAutoPlay(); if (currentStep > 0) { currentStep--; render(); } };
+        btnReset.onclick = () => { stopAutoPlay(); currentStep = 0; render(); };
+
+        render();
+    </script>
+</body>
+</html>

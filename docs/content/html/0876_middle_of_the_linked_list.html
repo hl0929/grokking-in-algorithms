@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middle Node Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .highlight-middle {
+            animation: pulse-emerald 2s infinite;
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+        }
+        @keyframes pulse-emerald {
+            0% { transform: scale(1); box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.4); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0px rgba(16, 185, 129, 0); }
+        }
+        .arrow-path {
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            animation: dash 1s ease-out forwards;
+        }
+        @keyframes dash { to { stroke-dashoffset: 0; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[550px]">
+        
+        <!-- Top Navigation -->
+        <div class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-base">Middle of the Linked List</h1>
+                    <p id="status-text" class="text-emerald-600 text-[11px] font-medium italic">快慢指针寻找中间位置</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-800">重置</button>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                    <button id="btn-prev" class="p-1.5 hover:bg-white rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-slate-800 text-white px-4 py-1.5 rounded-md text-[11px] font-bold hover:bg-slate-700 min-w-[80px]">自动播放</button>
+                    <button id="btn-next" class="p-1.5 hover:bg-white rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Main Viz Area -->
+            <div class="flex-1 p-10 flex flex-col relative bg-slate-50/30">
+                <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                
+                <div id="nodes-canvas" class="flex-1 relative mt-12">
+                    <!-- Nodes will be rendered here -->
+                </div>
+
+                <!-- Labels explaining the math -->
+                <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm grid grid-cols-2 gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                        <div class="text-[11px]"><b class="text-rose-600">Fast Pointer:</b> 每次移动 2 个节点</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        <div class="text-[11px]"><b class="text-emerald-600">Slow Pointer:</b> 每次移动 1 个节点</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Code Panel -->
+            <div class="w-[300px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">solution.py</span>
+                    <span id="step-counter" class="text-[10px] text-emerald-400 font-mono">0/0</span>
+                </div>
+                <div class="flex-1 overflow-y-auto py-6">
+                    <code id="L1" class="code-line">def middle_node(head):</code>
+                    <code id="L2" class="code-line">    slow = fast = head</code>
+                    <code id="L3" class="code-line">    while fast and fast.next:</code>
+                    <code id="L4" class="code-line">        slow = slow.next</code>
+                    <code id="L5" class="code-line">        fast = fast.next.next</code>
+                    <code id="L6" class="code-line">    return slow</code>
+                </div>
+                <div id="step-desc" class="p-5 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-300 leading-relaxed min-h-[80px]">
+                    点击播放查看双指针运行过程...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data for [1, 2, 3, 4]
+        const nodes = [
+            { id: 0, val: 1, x: 80 },
+            { id: 1, val: 2, x: 200 },
+            { id: 2, val: 3, x: 320 },
+            { id: 3, val: 4, x: 440 }
+        ];
+
+        const steps = [
+            { line: "L2", fast: 0, slow: 0, msg: "初始化：fast 和 slow 都指向头节点 (Node 1)", done: false },
+            { line: "L3", fast: 0, slow: 0, msg: "检查条件：fast 存在且 fast.next 存在", done: false },
+            { line: "L4", fast: 0, slow: 1, msg: "slow 向前移动 1 步", done: false },
+            { line: "L5", fast: 2, slow: 1, msg: "fast 向前移动 2 步 (跳过 Node 2 到达 Node 3)", done: false },
+            { line: "L3", fast: 2, slow: 1, msg: "检查条件：fast(3) 存在且 fast.next(4) 存在", done: false },
+            { line: "L4", fast: 2, slow: 2, msg: "slow 向前移动 1 步到 Node 3", done: false },
+            { line: "L5", fast: null, slow: 2, msg: "fast 向前移动 2 步，到达末尾 (None)", done: false },
+            { line: "L3", fast: null, slow: 2, msg: "检查条件：fast 为空，循环结束", done: false },
+            { line: "L6", fast: null, slow: 2, msg: "返回 slow 指向的节点", done: true }
+        ];
+
+        let currentStep = 0;
+        let timer = null;
+
+        function drawConnections() {
+            const svg = document.getElementById('svg-layer');
+            svg.innerHTML = `
+                <defs>
+                    <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1" />
+                    </marker>
+                </defs>
+            `;
+            
+            for (let i = 0; i < nodes.length - 1; i++) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", nodes[i].x + 25);
+                line.setAttribute("y1", 150);
+                line.setAttribute("x2", nodes[i+1].x - 25);
+                line.setAttribute("y2", 150);
+                line.setAttribute("stroke", "#e2e8f0");
+                line.setAttribute("stroke-width", "4");
+                line.setAttribute("marker-end", "url(#arrowhead)");
+                line.setAttribute("class", "arrow-path");
+                svg.appendChild(line);
+            }
+
+            // End null indicator
+            const last = nodes[nodes.length-1];
+            const nullText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            nullText.setAttribute("x", last.x + 60);
+            nullText.setAttribute("y", 155);
+            nullText.setAttribute("fill", "#94a3b8");
+            nullText.setAttribute("font-size", "12");
+            nullText.setAttribute("font-family", "monospace");
+            nullText.textContent = "NULL";
+            svg.appendChild(nullText);
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const canvas = document.getElementById('nodes-canvas');
+            canvas.innerHTML = '';
+
+            nodes.forEach((node) => {
+                const nodeEl = document.createElement('div');
+                const isMiddle = step.done && node.id === step.slow;
+                
+                nodeEl.className = `node-box absolute w-14 h-14 rounded-full border-4 flex items-center justify-center font-bold text-lg
+                    ${isMiddle ? 'highlight-middle' : 'border-slate-700 bg-white text-slate-800 shadow-sm'}`;
+                
+                nodeEl.style.left = `${node.x - 28}px`;
+                nodeEl.style.top = `122px`;
+                nodeEl.innerHTML = `<span>${node.val}</span>`;
+
+                // Pointer Tags
+                if (step.fast === node.id) {
+                    const tag = createPointer('FAST', 'bg-rose-500', -45);
+                    nodeEl.appendChild(tag);
+                }
+                if (step.slow === node.id) {
+                    const tag = createPointer('SLOW', 'bg-emerald-500', 60);
+                    nodeEl.appendChild(tag);
+                }
+
+                canvas.appendChild(nodeEl);
+            });
+
+            // Special case for Fast = None
+            if (step.fast === null) {
+                const nullTag = document.createElement('div');
+                nullTag.className = "absolute text-rose-500 font-bold text-[10px] animate-bounce";
+                nullTag.style.left = `${nodes[nodes.length-1].x + 55}px`;
+                nullTag.style.top = "100px";
+                nullTag.innerHTML = "FAST ▼";
+                canvas.appendChild(nullTag);
+            }
+
+            // Update UI components
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('step-desc').innerText = step.msg;
+            document.getElementById('step-counter').innerText = `${currentStep + 1}/${steps.length}`;
+            
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        function createPointer(label, color, offset) {
+            const container = document.createElement('div');
+            container.className = `absolute left-1/2 -translate-x-1/2 flex flex-col items-center`;
+            container.style.top = `${offset}px`;
+            
+            if (offset < 0) {
+                container.innerHTML = `<span class="${color} text-white text-[9px] px-2 py-0.5 rounded-full font-black mb-1 shadow-sm">${label}</span><div class="w-1 h-3 ${color} rounded-full"></div>`;
+            } else {
+                container.innerHTML = `<div class="w-1 h-3 ${color} rounded-full mt-1"></div><span class="${color} text-white text-[9px] px-2 py-0.5 rounded-full font-black mt-1 shadow-sm">${label}</span>`;
+            }
+            return container;
+        }
+
+        // Control logic
+        const playBtn = document.getElementById('btn-play');
+        playBtn.onclick = () => {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                playBtn.innerText = "自动播放";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                playBtn.innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        render();
+                    } else {
+                        clearInterval(timer);
+                        timer = null;
+                        playBtn.innerText = "重新开始";
+                    }
+                }, 1000);
+            }
+        };
+
+        document.getElementById('btn-next').onclick = () => { clearInterval(timer); timer = null; if (currentStep < steps.length - 1) currentStep++; render(); };
+        document.getElementById('btn-prev').onclick = () => { clearInterval(timer); timer = null; if (currentStep > 0) currentStep--; render(); };
+        document.getElementById('btn-reset').onclick = () => { clearInterval(timer); timer = null; currentStep = 0; render(); };
+
+        window.onload = () => { drawConnections(); render(); };
+    </script>
+</body>
+</html>

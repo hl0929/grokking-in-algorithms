@@ -15,6 +15,8 @@
 
 [0015. 三数之和](./content/0015_3_sum.md)
 
+[0019. 删除链表的倒数第 N 个结点](./content/0019_remove_nth_node_from_end_of_list.md)
+
 [0021. 合并两个有序链表](./content/0021_merge_two_sorted_list.md)
 
 [0026. 删除有序数组中的重复项](./content/0026_remove_duplicates_from_sorted_array.md)
@@ -42,6 +44,10 @@
 [0121. 买卖股票的最佳时机](./content/0121_best_time_to_buy_and_sell_stock.md)
 
 [0128. 最长连续序列](./content/0128_longest_consecutive_sequence.md)
+
+[0141. 环形链表](./content/0141_linked_list_cycle.md)
+
+[0142. 环形链表II](./content/0142_linked_list_cycle_ii.md)
 
 [0148. 排序链表](./content/0148_sort_list.md)
 
@@ -73,7 +79,7 @@
 
 [0567. 字符串的排列](./content/0567_permutation_in_string.md)
 
-
+[0876. 链表的中间结点](./content/0876_middle_of_the_linked_list.md)
 
 
 

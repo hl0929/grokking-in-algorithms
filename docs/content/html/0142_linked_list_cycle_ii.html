@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linked List Cycle II - Compact View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .entrance-highlight {
+            animation: pulse-ring 2s infinite;
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(1); box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0px rgba(16, 185, 129, 0); }
+        }
+        .arrow-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: dash 1.5s linear forwards;
+        }
+        @keyframes dash { to { stroke-dashoffset: 0; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="w-full max-w-6xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[600px]">
+        
+        <!-- Compact Top Bar -->
+        <div class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.1-1.1"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-base">Linked List Cycle II</h1>
+                    <p id="status-text" class="text-blue-600 text-[11px] font-medium">准备就绪</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-800 transition-colors">重置</button>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                    <button id="btn-prev" class="p-1.5 hover:bg-white rounded-md transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-slate-800 text-white px-4 py-1.5 rounded-md text-[11px] font-bold hover:bg-slate-700 min-w-[80px]">自动播放</button>
+                    <button id="btn-next" class="p-1.5 hover:bg-white rounded-md transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Left: Visualization (Expanded) -->
+            <div class="flex-1 p-8 flex flex-col relative bg-slate-50/50">
+                <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                
+                <div id="nodes-canvas" class="flex-1 relative">
+                    <!-- Nodes injected here -->
+                </div>
+
+                <!-- Footer Stats (Compact) -->
+                <div class="grid grid-cols-3 gap-3 relative z-10">
+                    <div class="bg-white/80 backdrop-blur border border-slate-200 p-3 rounded-xl shadow-sm">
+                        <span class="text-[9px] uppercase font-bold text-slate-400 block">当前阶段</span>
+                        <div id="phase-val" class="text-xs font-bold text-slate-700 truncate">寻找碰撞点 (Phase 1)</div>
+                    </div>
+                    <div class="bg-white/80 backdrop-blur border border-slate-200 p-3 rounded-xl shadow-sm">
+                        <span class="text-[9px] uppercase font-bold text-rose-400 block">FAST</span>
+                        <div id="fast-pos" class="text-xs font-bold text-rose-600">HEAD</div>
+                    </div>
+                    <div class="bg-white/80 backdrop-blur border border-slate-200 p-3 rounded-xl shadow-sm">
+                        <span class="text-[9px] uppercase font-bold text-emerald-400 block">SLOW</span>
+                        <div id="slow-pos" class="text-xs font-bold text-emerald-600">HEAD</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Code Panel (Narrowed) -->
+            <div class="w-[300px] code-container flex flex-col border-l border-slate-200 shadow-xl">
+                <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">solution.py</span>
+                    <span id="step-counter" class="text-[10px] text-blue-400 font-mono">01/14</span>
+                </div>
+                <div class="flex-1 overflow-y-auto py-4">
+                    <code id="L1" class="code-line">def detectCycle(head):</code>
+                    <code id="L2" class="code-line">    slow = fast = head</code>
+                    <code id="L3" class="code-line">    while fast and fast.next:</code>
+                    <code id="L4" class="code-line">        slow = slow.next</code>
+                    <code id="L5" class="code-line">        fast = fast.next.next</code>
+                    <code id="L6" class="code-line">        if slow == fast:</code>
+                    <code id="L7" class="code-line">            break # 相遇</code>
+                    <code id="L8" class="code-line">    else: return None</code>
+                    <code id="L9" class="code-line">    ptr = head</code>
+                    <code id="L10" class="code-line">    while ptr != slow:</code>
+                    <code id="L11" class="code-line">        ptr = ptr.next</code>
+                    <code id="L12" class="code-line">        slow = slow.next</code>
+                    <code id="L13" class="code-line">    return ptr # 环入口</code>
+                </div>
+                <div class="p-5 bg-slate-900/95 border-t border-slate-800">
+                    <p class="text-[11px] text-slate-400 leading-relaxed italic">
+                        相遇后，从头节点和相遇点同步出发，再次相遇处即为环入口。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 紧凑型节点数据
+        const nodesData = [
+            { id: 0, val: 1, x: 60, y: 220 },
+            { id: 1, val: 2, x: 150, y: 220 },
+            { id: 2, val: 3, x: 240, y: 220 }, // Entrance
+            { id: 3, val: 4, x: 330, y: 150 }, // Upper Curve
+            { id: 4, val: 5, x: 420, y: 220 }, // Right End
+            { id: 5, val: 6, x: 330, y: 290 }, // Lower Curve
+        ];
+        const nextMap = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 2 };
+
+        const steps = [
+            { line: "L2", msg: "初始化：指针指向 Head", phase: "阶段 1: 寻找碰撞点", fast: 0, slow: 0, ptr: null },
+            { line: "L4", msg: "Slow 前进 1 步", phase: "阶段 1", fast: 0, slow: 1, ptr: null },
+            { line: "L5", msg: "Fast 前进 2 步", phase: "阶段 1", fast: 2, slow: 1, ptr: null },
+            { line: "L4", msg: "Slow 进入环入口", phase: "阶段 1", fast: 2, slow: 2, ptr: null },
+            { line: "L5", msg: "Fast 在环内绕行 (2-3-4)", phase: "阶段 1", fast: 4, slow: 2, ptr: null },
+            { line: "L4", msg: "Slow 移动至节点 4", phase: "阶段 1", fast: 4, slow: 3, ptr: null },
+            { line: "L5", msg: "Fast 快速接近 (4-5-2)", phase: "阶段 1", fast: 2, slow: 3, ptr: null },
+            { line: "L4", msg: "Slow 继续移动", phase: "阶段 1", fast: 2, slow: 4, ptr: null },
+            { line: "L5", msg: "Fast 与 Slow 碰撞相遇！", phase: "阶段 1", fast: 4, slow: 4, ptr: null },
+            { line: "L7", msg: "碰撞点已确定", phase: "碰撞定位", fast: 4, slow: 4, ptr: null, collide: true },
+            { line: "L9", msg: "ptr 指向 Head，与 slow 同时移动", phase: "阶段 2: 定位入口", fast: null, slow: 4, ptr: 0 },
+            { line: "L11", msg: "两者各自匀速前进一步", phase: "阶段 2", fast: null, slow: 5, ptr: 1 },
+            { line: "L11", msg: "两者在入口相遇！", phase: "寻找完成", fast: null, slow: 2, ptr: 2, entrance: true },
+            { line: "L13", msg: "返回环入口节点 3", phase: "寻找完成", fast: null, slow: 2, ptr: 2, entrance: true }
+        ];
+
+        let currentStep = 0;
+        let timer = null;
+
+        function drawLines() {
+            const svg = document.getElementById('svg-layer');
+            svg.innerHTML = `
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1" />
+                    </marker>
+                </defs>
+            `;
+
+            Object.entries(nextMap).forEach(([fromIdx, toIdx]) => {
+                const from = nodesData[fromIdx];
+                const to = nodesData[toIdx];
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                let d;
+                if (fromIdx == 5) { // Return link
+                    d = `M ${from.x - 10} ${from.y - 10} Q ${from.x - 40} ${from.y}, ${to.x + 10} ${to.y + 10}`;
+                } else {
+                    const dx = to.x - from.x;
+                    const dy = to.y - from.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const r = 24; // Node radius
+                    d = `M ${from.x + (dx/dist)*r} ${from.y + (dy/dist)*r} L ${to.x - (dx/dist)*r} ${to.y - (dy/dist)*r}`;
+                }
+
+                path.setAttribute("d", d);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", "#e2e8f0");
+                path.setAttribute("stroke-width", "3");
+                path.setAttribute("marker-end", "url(#arrow)");
+                path.setAttribute("class", "arrow-path");
+                svg.appendChild(path);
+            });
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const canvas = document.getElementById('nodes-canvas');
+            canvas.innerHTML = '';
+
+            nodesData.forEach((node, i) => {
+                const nodeEl = document.createElement('div');
+                const isEntrance = (node.id === 2 && step.entrance);
+                const isCollide = (node.id === 4 && step.collide);
+
+                nodeEl.className = `node-box absolute w-12 h-12 rounded-full border-[3px] flex items-center justify-center font-bold text-sm z-10
+                    ${isEntrance ? 'entrance-highlight bg-emerald-50 border-emerald-500 text-emerald-700' : 
+                      isCollide ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-slate-700 bg-white text-slate-800 shadow-sm'}`;
+                
+                nodeEl.style.left = `${node.x - 24}px`;
+                nodeEl.style.top = `${node.y - 24}px`;
+                nodeEl.innerHTML = `<span>${node.val}</span>`;
+
+                // Pointer Tags (More Compact)
+                const tags = [];
+                if (step.fast === node.id) tags.push({ label: 'F', color: 'bg-rose-500', pos: 'top' });
+                if (step.slow === node.id) tags.push({ label: 'S', color: 'bg-emerald-500', pos: 'bottom' });
+                if (step.ptr === node.id) tags.push({ label: 'P', color: 'bg-blue-600', pos: 'top' });
+
+                tags.forEach(t => {
+                    const tagEl = document.createElement('div');
+                    const isTop = t.pos === 'top';
+                    tagEl.className = `absolute ${isTop ? '-top-8' : '-bottom-8'} left-1/2 -translate-x-1/2 flex flex-col items-center z-20`;
+                    tagEl.innerHTML = isTop ? 
+                        `<span class="${t.color} text-white text-[9px] px-1.5 py-0.5 rounded font-black">${t.label}</span><div class="w-0.5 h-2 ${t.color}"></div>` :
+                        `<div class="w-0.5 h-2 ${t.color}"></div><span class="${t.color} text-white text-[9px] px-1.5 py-0.5 rounded font-black">${t.label}</span>`;
+                    nodeEl.appendChild(tagEl);
+                });
+
+                canvas.appendChild(nodeEl);
+            });
+
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('phase-val').innerText = step.phase;
+            document.getElementById('fast-pos').innerText = step.fast !== null ? `Node ${nodesData[step.fast].val}` : "OFF";
+            document.getElementById('slow-pos').innerText = `Node ${nodesData[step.slow].val}`;
+            document.getElementById('step-counter').innerText = `${String(currentStep + 1).padStart(2, '0')}/${steps.length}`;
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            const activeLine = document.getElementById(step.line);
+            activeLine.classList.add('active');
+        }
+
+        const playBtn = document.getElementById('btn-play');
+        playBtn.onclick = () => {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                playBtn.innerText = "自动播放";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                playBtn.innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        render();
+                    } else {
+                        clearInterval(timer);
+                        timer = null;
+                        playBtn.innerText = "重新开始";
+                    }
+                }, 1200);
+            }
+        };
+
+        document.getElementById('btn-next').onclick = () => { clearInterval(timer); timer = null; playBtn.innerText="自动播放"; if (currentStep < steps.length - 1) currentStep++; render(); };
+        document.getElementById('btn-prev').onclick = () => { clearInterval(timer); timer = null; playBtn.innerText="自动播放"; if (currentStep > 0) currentStep--; render(); };
+        document.getElementById('btn-reset').onclick = () => { clearInterval(timer); timer = null; playBtn.innerText="自动播放"; currentStep = 0; render(); };
+
+        window.onload = () => { drawLines(); render(); };
+    </script>
+</body>
+</html>
