@@ -19,6 +19,8 @@
 
 [0021. 合并两个有序链表](./content/0021_merge_two_sorted_list.md)
 
+[0023. 合并K个有序链表](./content/0023_merge_k_sorted_list.md)
+
 [0026. 删除有序数组中的重复项](./content/0026_remove_duplicates_from_sorted_array.md)
 
 [0033. 搜索旋转排序数组](./content/0033_search_in_rotated_sorted_array.md)
@@ -49,9 +51,15 @@
 
 [0142. 环形链表II](./content/0142_linked_list_cycle_ii.md)
 
+[0146. LRU 缓存](./content/0146_lru_cache.md)
+
 [0148. 排序链表](./content/0148_sort_list.md)
 
+[0160. 相交链表](./content/0160_intersection_of_two_linked_lists.md)
+
 [0202. 快乐数](./content/0202_happy_number.md)
+
+[0206. 反转链表](./content/0206_reverse_linked_list.md)
 
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
 

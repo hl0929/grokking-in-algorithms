@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LRU Cache Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        .cache-node {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .lru-indicator {
+            background: linear-gradient(to right, #ef4444 0%, #3b82f6 100%);
+        }
+        @keyframes pop-out {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.5) translateY(-20px); opacity: 0; }
+        }
+        .pop-animation {
+            animation: pop-out 0.5s forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[520px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-sm">LRU Cache (Capacity: 2)</h1>
+                    <p class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Based on OrderedDict</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-3 transition-colors">RESET</button>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    <button id="btn-prev" class="p-2 hover:bg-white rounded-lg transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-indigo-600 text-white px-5 py-1.5 rounded-lg text-[11px] font-bold hover:bg-indigo-700 min-w-[80px] shadow-sm transition-all">START</button>
+                    <button id="btn-next" class="p-2 hover:bg-white rounded-lg transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visualization Area -->
+            <div class="flex-1 p-6 flex flex-col gap-6 bg-slate-50/30">
+                
+                <!-- Status Bar -->
+                <div class="flex justify-between items-end">
+                    <div class="space-y-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Status</span>
+                        <div id="status-text" class="text-sm font-bold text-slate-700">Ready to start...</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cache Size</span>
+                        <div class="flex gap-1 mt-1" id="size-dots">
+                            <div class="w-2 h-2 rounded-full bg-slate-200"></div>
+                            <div class="w-2 h-2 rounded-full bg-slate-200"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cache Display -->
+                <div class="relative flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center overflow-hidden p-8">
+                    <!-- The OrderedDict visualization -->
+                    <div id="cache-container" class="flex items-center gap-4 relative z-10 h-32">
+                        <!-- Nodes go here -->
+                    </div>
+
+                    <!-- Order Indicators -->
+                    <div class="absolute bottom-6 left-12 right-12">
+                        <div class="h-1.5 w-full rounded-full lru-indicator opacity-20"></div>
+                        <div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
+                            <span class="text-red-500">LRU (Oldest)</span>
+                            <span class="text-blue-500">Most Recent (End)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl flex items-center gap-3">
+                        <div class="w-2 h-8 bg-blue-500 rounded-full"></div>
+                        <div>
+                            <div class="text-[10px] font-bold text-blue-800 uppercase">Operation</div>
+                            <div id="op-label" class="text-xs text-blue-600 font-medium">-</div>
+                        </div>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-center gap-3">
+                        <div class="w-2 h-8 bg-amber-500 rounded-full"></div>
+                        <div>
+                            <div class="text-[10px] font-bold text-amber-800 uppercase">Return Value</div>
+                            <div id="ret-label" class="text-xs text-amber-600 font-bold">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Panel -->
+            <div class="w-[320px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-4 py-3 bg-slate-950 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">OrderedDict Implementation</span>
+                    <span id="step-count" class="text-[10px] text-indigo-400 font-mono">0 / 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-y-auto">
+                    <code id="L_init" class="code-line">lru = LRUCache(2)</code>
+                    <code id="L1" class="code-line">lru.put(1, 1)</code>
+                    <code id="L2" class="code-line">lru.put(2, 2)</code>
+                    <code id="L3" class="code-line">lru.get(1)</code>
+                    <code id="L4" class="code-line">lru.put(3, 3)</code>
+                    <code id="L5" class="code-line">lru.get(2)</code>
+                    <code id="L6" class="code-line">lru.put(4, 4)</code>
+                    <code id="L7" class="code-line">lru.get(1)</code>
+                    <code id="L8" class="code-line">lru.get(3)</code>
+                    <code id="L9" class="code-line">lru.get(4)</code>
+                </div>
+                <div id="log-panel" class="p-4 bg-slate-950 text-[11px] text-slate-400 border-t border-slate-800 min-h-[120px] italic">
+                    点击 START 观察缓存置换逻辑。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const steps = [
+            { line: 'L_init', op: 'INIT', key: null, val: null, cache: [], ret: null, msg: '初始化容量为 2 的缓存。' },
+            { line: 'L1', op: 'PUT', key: 1, val: 1, cache: [1], ret: null, msg: '插入 (1:1)。' },
+            { line: 'L2', op: 'PUT', key: 2, val: 2, cache: [1, 2], ret: null, msg: '插入 (2:2)。缓存已满。' },
+            { line: 'L3', op: 'GET', key: 1, val: 1, cache: [2, 1], ret: 1, msg: '访问 Key 1。它被移动到末尾（最新使用）。' },
+            { line: 'L4', op: 'PUT', key: 3, val: 3, cache: [1, 3], ret: null, msg: '插入 (3:3)。由于溢出，弹出最久未使用的 Key 2。' },
+            { line: 'L5', op: 'GET', key: 2, val: null, cache: [1, 3], ret: -1, msg: '查找 Key 2。未找到，返回 -1。' },
+            { line: 'L6', op: 'PUT', key: 4, val: 4, cache: [3, 4], ret: null, msg: '插入 (4:4)。弹出最久未使用的 Key 1。' },
+            { line: 'L7', op: 'GET', key: 1, val: null, cache: [3, 4], ret: -1, msg: '查找 Key 1。未找到，返回 -1。' },
+            { line: 'L8', op: 'GET', key: 3, val: 3, cache: [4, 3], ret: 3, msg: '查找 Key 3。成功，移动到末尾。' },
+            { line: 'L9', op: 'GET', key: 4, val: 4, cache: [3, 4], ret: 4, msg: '查找 Key 4。成功，移动到末尾。' }
+        ];
+
+        let currentIdx = 0;
+        let timer = null;
+
+        function updateUI() {
+            const step = steps[currentIdx];
+            
+            // 1. Code Highlighting
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            const activeCode = document.getElementById(step.line);
+            if(activeCode) activeCode.classList.add('active');
+
+            // 2. Text Content
+            document.getElementById('step-count').innerText = `${currentIdx + 1} / ${steps.length}`;
+            document.getElementById('op-label').innerText = `${step.op} ${step.key ? `(key=${step.key})` : ''}`;
+            document.getElementById('ret-label').innerText = step.ret !== null ? step.ret : '-';
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('log-panel').innerText = `执行: ${step.line === 'L_init' ? '初始化' : step.op + ' 操作'}\n详情: ${step.msg}`;
+
+            // 3. Cache Nodes
+            const container = document.getElementById('cache-container');
+            const dataMap = { 1:1, 2:2, 3:3, 4:4 };
+            
+            // We want to animate the transition. Simple approach: clear and rebuild but keep logic
+            container.innerHTML = '';
+            step.cache.forEach((key, index) => {
+                const node = document.createElement('div');
+                const isNew = (step.op === 'PUT' && key === step.key && currentIdx > 0);
+                const isMoved = (step.op === 'GET' && key === step.key && step.ret !== -1);
+
+                node.className = `cache-node w-16 h-16 bg-white border-2 rounded-2xl flex flex-col items-center justify-center shadow-md relative
+                    ${isNew ? 'border-green-400 bg-green-50 animate-bounce' : isMoved ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`;
+                
+                node.innerHTML = `
+                    <span class="text-[10px] font-bold text-slate-400">KEY</span>
+                    <span class="text-lg font-black text-slate-800">${key}</span>
+                    <div class="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 text-white text-[9px] flex items-center justify-center rounded-full font-bold">
+                        v${dataMap[key]}
+                    </div>
+                `;
+                container.appendChild(node);
+            });
+
+            // 4. Capacity Dots
+            const dots = document.getElementById('size-dots');
+            dots.innerHTML = '';
+            for(let i=0; i<2; i++) {
+                const dot = document.createElement('div');
+                dot.className = `w-2 h-2 rounded-full transition-all duration-300 ${i < step.cache.length ? 'bg-indigo-500 scale-125' : 'bg-slate-200'}`;
+                dots.appendChild(dot);
+            }
+        }
+
+        function nextStep() {
+            if (currentIdx < steps.length - 1) {
+                currentIdx++;
+                updateUI();
+            } else {
+                stopAuto();
+            }
+        }
+
+        function prevStep() {
+            if (currentIdx > 0) {
+                currentIdx--;
+                updateUI();
+            }
+        }
+
+        function startAuto() {
+            const btn = document.getElementById('btn-play');
+            if (timer) {
+                stopAuto();
+            } else {
+                if (currentIdx === steps.length - 1) currentIdx = 0;
+                btn.innerText = "PAUSE";
+                btn.classList.replace('bg-indigo-600', 'bg-slate-600');
+                timer = setInterval(nextStep, 1200);
+            }
+        }
+
+        function stopAuto() {
+            const btn = document.getElementById('btn-play');
+            clearInterval(timer);
+            timer = null;
+            btn.innerText = "RESUME";
+            btn.classList.replace('bg-slate-600', 'bg-indigo-600');
+        }
+
+        document.getElementById('btn-next').onclick = () => { stopAuto(); nextStep(); };
+        document.getElementById('btn-prev').onclick = () => { stopAuto(); prevStep(); };
+        document.getElementById('btn-play').onclick = startAuto;
+        document.getElementById('btn-reset').onclick = () => { stopAuto(); currentIdx = 0; updateUI(); };
+
+        updateUI();
+    </script>
+</body>
+</html>

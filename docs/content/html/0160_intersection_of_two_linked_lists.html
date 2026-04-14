@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intersection Visualizer Compact</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .code-line {
+            display: block;
+            padding: 1px 12px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #10b981;
+        }
+        .node {
+            transition: all 0.3s ease;
+        }
+        .pointer-tag {
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 50;
+        }
+        .highlight-intersect {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-2">
+
+    <div class="w-full max-w-4xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[480px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white shadow-md">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                </div>
+                <h1 class="text-slate-800 font-bold text-sm tracking-tight">相交链表演示</h1>
+            </div>
+            <div class="flex items-center gap-2 scale-90">
+                <button id="btn-reset" class="px-3 py-1 text-xs font-bold text-slate-400 hover:bg-slate-50 rounded">重置</button>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                    <button id="btn-prev" class="p-1 hover:bg-white rounded transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-emerald-500 text-white px-4 py-1 rounded text-[10px] font-bold hover:bg-emerald-600 shadow-sm min-w-[70px]">开始</button>
+                    <button id="btn-next" class="p-1 hover:bg-white rounded transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visualization Area -->
+            <div class="flex-1 p-4 flex flex-col relative bg-slate-50/30 overflow-hidden">
+                <svg id="svg-canvas" class="absolute inset-0 w-full h-full pointer-events-none">
+                    <defs>
+                        <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1" />
+                        </marker>
+                    </defs>
+                </svg>
+                
+                <div id="nodes-container" class="relative flex-1">
+                    <!-- Nodes -->
+                </div>
+
+                <!-- Mini Metrics -->
+                <div class="mt-auto bg-white border border-slate-200 p-3 rounded-lg flex items-center justify-between text-[11px]">
+                    <div class="flex items-center gap-3">
+                        <div class="flex flex-col items-center">
+                            <span class="text-[9px] text-slate-400 uppercase font-bold">A步数</span>
+                            <span id="dist-a" class="font-mono font-bold text-rose-500">0</span>
+                        </div>
+                        <div class="w-px h-4 bg-slate-100"></div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-[9px] text-slate-400 uppercase font-bold">B步数</span>
+                            <span id="dist-b" class="font-mono font-bold text-blue-500">0</span>
+                        </div>
+                    </div>
+                    <div id="equality-check" class="font-bold text-slate-300">nodeA != nodeB</div>
+                </div>
+            </div>
+
+            <!-- Compact Code Panel -->
+            <div class="w-[280px] code-container flex flex-col border-l border-slate-100">
+                <div class="px-4 py-3 bg-slate-900 flex justify-between items-center">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Logic</span>
+                    <span id="step-label" class="text-[9px] text-emerald-500 font-mono">STEP 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-hidden">
+                    <code id="L2" class="code-line">nodeA, nodeB = headA, headB</code>
+                    <code id="L3" class="code-line">while nodeA != nodeB:</code>
+                    <code id="L5" class="code-line">  nodeA = nodeA.next if nodeA else headB</code>
+                    <code id="L7" class="code-line">  nodeB = nodeB.next if nodeB else headA</code>
+                    <code id="L8" class="code-line">return nodeA</code>
+                </div>
+                <div id="commentary" class="p-4 bg-slate-900/40 border-t border-slate-800 text-[10px] text-slate-400 leading-normal min-h-[80px]">
+                    等待演示开始...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodes = [
+            { id: 'a1', val: 1, x: 60, y: 80 },
+            { id: 'a2', val: 9, x: 130, y: 80 },
+            { id: 'a3', val: 1, x: 200, y: 80 },
+            { id: 'b1', val: 3, x: 130, y: 200 },
+            { id: 'c1', val: 2, x: 280, y: 140 },
+            { id: 'c2', val: 1, x: 350, y: 140 }
+        ];
+
+        const connections = [
+            ['a1', 'a2'], ['a2', 'a3'], ['a3', 'c1'],
+            ['b1', 'c1'], ['c1', 'c2']
+        ];
+
+        const pathA = ['a1', 'a2', 'a3', 'c1', 'c2', null, 'b1', 'c1', 'c2'];
+        const pathB = ['b1', 'c1', 'c2', null, 'a1', 'a2', 'a3', 'c1', 'c2'];
+
+        const steps = [];
+        steps.push({ line: 'L2', a: 'a1', b: 'b1', msg: "初始化指针到各自头部。" });
+        
+        for (let i = 0; i < Math.max(pathA.length, pathB.length); i++) {
+            const curA = pathA[i];
+            const curB = pathB[i];
+            steps.push({ line: 'L3', a: curA, b: curB, msg: `检查 nodeA(${curA||'N'}) ${curA === curB ? '==' : '!='} nodeB(${curB||'N'})` });
+            if (curA === curB && i > 0) {
+                steps.push({ line: 'L8', a: curA, b: curB, msg: "找到相交点！算法结束。" });
+                break;
+            }
+            steps.push({ line: 'L5', a: pathA[i+1], b: pathB[i+1], msg: curA === null || curB === null ? "指针到达末尾，切换至另一链表头部。" : "指针同时后移一步。" });
+        }
+
+        let currentStep = 0;
+        let autoPlay = null;
+
+        function init() {
+            const container = document.getElementById('nodes-container');
+            const svg = document.getElementById('svg-canvas');
+
+            connections.forEach(([fromId, toId]) => {
+                const f = nodes.find(n => n.id === fromId);
+                const t = nodes.find(n => n.id === toId);
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", f.x); line.setAttribute("y1", f.y);
+                line.setAttribute("x2", t.x); line.setAttribute("y2", t.y);
+                line.setAttribute("stroke", "#e2e8f0"); line.setAttribute("stroke-width", "2");
+                line.setAttribute("marker-end", "url(#arrowhead)");
+                svg.appendChild(line);
+            });
+
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.id = `node-${node.id}`;
+                div.className = "node absolute w-9 h-9 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center font-bold text-slate-600 text-xs z-10";
+                div.style.left = `${node.x - 18}px`; div.style.top = `${node.y - 18}px`;
+                div.innerText = node.val;
+                container.appendChild(div);
+            });
+
+            createPointer('ptr-a', 'bg-rose-500', 'A');
+            createPointer('ptr-b', 'bg-blue-500', 'B');
+            update();
+        }
+
+        function createPointer(id, color, label) {
+            const p = document.createElement('div');
+            p.id = id;
+            p.className = `pointer-tag absolute w-6 h-6 ${color} rounded shadow-md flex items-center justify-center text-white font-black text-[9px] border-2 border-white`;
+            p.innerText = label;
+            document.getElementById('nodes-container').appendChild(p);
+        }
+
+        function update() {
+            const s = steps[currentStep];
+            movePointer('ptr-a', s.a, -28);
+            movePointer('ptr-b', s.b, 28);
+
+            nodes.forEach(n => {
+                document.getElementById(`node-${n.id}`).classList.remove('highlight-intersect');
+                if (s.a === s.b && s.a === n.id) document.getElementById(`node-${n.id}`).classList.add('highlight-intersect');
+            });
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            if(document.getElementById(s.line)) document.getElementById(s.line).classList.add('active');
+
+            document.getElementById('commentary').innerText = s.msg;
+            document.getElementById('step-label').innerText = `STEP ${currentStep}`;
+            document.getElementById('dist-a').innerText = currentStep;
+            document.getElementById('dist-b').innerText = currentStep;
+            
+            const eq = document.getElementById('equality-check');
+            eq.innerText = s.a === s.b ? "MATCH!" : "nodeA != nodeB";
+            eq.className = s.a === s.b ? "font-bold text-emerald-500" : "font-bold text-slate-300";
+        }
+
+        function movePointer(id, nodeId, yOff) {
+            const p = document.getElementById(id);
+            if (!nodeId) {
+                p.style.left = `420px`; p.style.top = `${140 + yOff}px`;
+                p.style.opacity = "0.3"; p.innerText = "null";
+            } else {
+                const n = nodes.find(node => node.id === nodeId);
+                p.style.left = `${n.x - 12}px`; p.style.top = `${n.y + yOff - 12}px`;
+                p.style.opacity = "1"; p.innerText = id.split('-')[1].toUpperCase();
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if (currentStep < steps.length - 1) { currentStep++; update(); } };
+        document.getElementById('btn-prev').onclick = () => { if (currentStep > 0) { currentStep--; update(); } };
+        document.getElementById('btn-reset').onclick = () => { currentStep = 0; update(); };
+        document.getElementById('btn-play').onclick = function() {
+            if (autoPlay) { clearInterval(autoPlay); autoPlay = null; this.innerText = "继续"; }
+            else {
+                this.innerText = "暂停";
+                autoPlay = setInterval(() => {
+                    if (currentStep < steps.length - 1) { currentStep++; update(); }
+                    else { clearInterval(autoPlay); autoPlay = null; this.innerText = "重播"; }
+                }, 800);
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

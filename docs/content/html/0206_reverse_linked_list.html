@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Linked List Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-left-color: #3b82f6;
+        }
+        .node-box {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .link-line {
+            transition: all 0.5s ease;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 0;
+        }
+        .link-reversed {
+            stroke: #ef4444 !important;
+            stroke-dashoffset: 0;
+        }
+        @keyframes flow {
+            to { stroke-dashoffset: -20; }
+        }
+        .pointer-label {
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-900">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[600px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-base">Reverse Linked List</h1>
+                    <p id="status-text" class="text-blue-600 text-[11px] font-medium italic">逐节点反转指针方向</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-800">重置</button>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                    <button id="btn-prev-step" class="p-1.5 hover:bg-white rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-slate-800 text-white px-4 py-1.5 rounded-md text-[11px] font-bold hover:bg-slate-700 min-w-[80px]">自动演示</button>
+                    <button id="btn-next-step" class="p-1.5 hover:bg-white rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visualization Area -->
+            <div class="flex-1 p-10 flex flex-col relative bg-slate-50/30 overflow-hidden">
+                <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                    <defs>
+                        <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+                        </marker>
+                        <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+                        </marker>
+                        <marker id="arrow-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1" />
+                        </marker>
+                    </defs>
+                </svg>
+                
+                <div id="nodes-canvas" class="flex-1 relative mt-16">
+                    <!-- Nodes will be rendered here via JS -->
+                </div>
+
+                <!-- Legend -->
+                <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm grid grid-cols-3 gap-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-slate-500"></div>
+                        <div class="text-[10px] font-medium text-slate-600">PREV (已处理)</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <div class="text-[10px] font-medium text-slate-600">CURR (当前)</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                        <div class="text-[10px] font-medium text-slate-600">NEXT (暂存)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Code Panel -->
+            <div class="w-[320px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">reverse.py</span>
+                    <span id="step-counter" class="text-[10px] text-blue-400 font-mono">Step 0/0</span>
+                </div>
+                <div class="flex-1 overflow-y-auto py-4">
+                    <code id="L1" class="code-line text-slate-500 italic">def reverse_list(head):</code>
+                    <code id="L2" class="code-line">    prev = None</code>
+                    <code id="L3" class="code-line">    curr = head</code>
+                    <code id="L4" class="code-line">    while curr:</code>
+                    <code id="L5" class="code-line">        next_node = curr.next</code>
+                    <code id="L6" class="code-line">        curr.next = prev</code>
+                    <code id="L7" class="code-line">        prev = curr</code>
+                    <code id="L8" class="code-line">        curr = next_node</code>
+                    <code id="L9" class="code-line">    return prev</code>
+                </div>
+                <div id="step-desc" class="p-5 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-300 leading-relaxed min-h-[100px] border-l-4 border-l-blue-500">
+                    等待开始...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodesData = [
+            { id: 0, val: 1, x: 100 },
+            { id: 1, val: 2, x: 220 },
+            { id: 2, val: 3, x: 340 },
+            { id: 3, val: 4, x: 460 }
+        ];
+
+        // step definition
+        const steps = [
+            { line: "L2", p: null, c: null, n: null, reversed: [], msg: "初始化 prev 为 None。" },
+            { line: "L3", p: null, c: 0, n: null, reversed: [], msg: "初始化 curr 指向头节点 Node(1)。" },
+            { line: "L4", p: null, c: 0, n: null, reversed: [], msg: "进入循环：curr(1) 不为空。" },
+            { line: "L5", p: null, c: 0, n: 1, reversed: [], msg: "暂存下一个节点：next_node = curr.next (Node 2)。" },
+            { line: "L6", p: null, c: 0, n: 1, reversed: [0], msg: "【关键】反转：curr.next 指向 prev (此时为 None)。" },
+            { line: "L7", p: 0, c: 0, n: 1, reversed: [0], msg: "移动 prev 到 curr 位置。" },
+            { line: "L8", p: 0, c: 1, n: 1, reversed: [0], msg: "移动 curr 到 next_node 位置。" },
+            
+            { line: "L4", p: 0, c: 1, n: 1, reversed: [0], msg: "循环：curr(2) 不为空。" },
+            { line: "L5", p: 0, c: 1, n: 2, reversed: [0], msg: "暂存下一个节点：next_node = curr.next (Node 3)。" },
+            { line: "L6", p: 0, c: 1, n: 2, reversed: [0, 1], msg: "【关键】反转：Node 2 的 next 指向 Node 1。" },
+            { line: "L7", p: 1, c: 1, n: 2, reversed: [0, 1], msg: "移动 prev 到 Node 2。" },
+            { line: "L8", p: 1, c: 2, n: 2, reversed: [0, 1], msg: "移动 curr 到 Node 3。" },
+
+            { line: "L4", p: 1, c: 2, n: 2, reversed: [0, 1], msg: "循环：curr(3) 不为空。" },
+            { line: "L5", p: 1, c: 2, n: 3, reversed: [0, 1], msg: "暂存下一个节点：next_node = curr.next (Node 4)。" },
+            { line: "L6", p: 1, c: 2, n: 3, reversed: [0, 1, 2], msg: "【关键】反转：Node 3 的 next 指向 Node 2。" },
+            { line: "L7", p: 2, c: 2, n: 3, reversed: [0, 1, 2], msg: "移动 prev 到 Node 3。" },
+            { line: "L8", p: 2, c: 3, n: 3, reversed: [0, 1, 2], msg: "移动 curr 到 Node 4。" },
+
+            { line: "L4", p: 2, c: 3, n: 3, reversed: [0, 1, 2], msg: "循环：curr(4) 不为空。" },
+            { line: "L5", p: 2, c: 3, n: null, reversed: [0, 1, 2], msg: "暂存下一个节点：next_node = None。" },
+            { line: "L6", p: 2, c: 3, n: null, reversed: [0, 1, 2, 3], msg: "【关键】反转：Node 4 的 next 指向 Node 3。" },
+            { line: "L7", p: 3, c: 3, n: null, reversed: [0, 1, 2, 3], msg: "移动 prev 到 Node 4。" },
+            { line: "L8", p: 3, c: null, n: null, reversed: [0, 1, 2, 3], msg: "移动 curr 到 None。" },
+            
+            { line: "L4", p: 3, c: null, n: null, reversed: [0, 1, 2, 3], msg: "检查：curr 为空，退出循环。" },
+            { line: "L9", p: 3, c: null, n: null, reversed: [0, 1, 2, 3], msg: "返回 prev，即新的头节点 Node(4)。" }
+        ];
+
+        let currentStep = 0;
+        let autoTimer = null;
+
+        function render() {
+            const step = steps[currentStep];
+            const canvas = document.getElementById('nodes-canvas');
+            const svg = document.getElementById('svg-layer');
+            
+            // 1. Clear SVG except markers
+            const markers = svg.querySelector('defs');
+            svg.innerHTML = '';
+            svg.appendChild(markers);
+
+            // 2. Draw Links
+            nodesData.forEach((node, i) => {
+                if (i < nodesData.length - 1) {
+                    const isReversed = step.reversed.includes(i);
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    
+                    const x1 = node.x + 30;
+                    const x2 = nodesData[i+1].x - 30;
+                    const y = 140;
+
+                    if (!isReversed) {
+                        // Original forward link
+                        line.setAttribute("d", `M ${x1} ${y} L ${x2} ${y}`);
+                        line.setAttribute("stroke", "#cbd5e1");
+                        line.setAttribute("marker-end", "url(#arrow-gray)");
+                    } else {
+                        // Reversed backward link (curved)
+                        const cpX = (x1 + x2) / 2;
+                        const cpY = y + 40; // curve down
+                        line.setAttribute("d", `M ${x2} ${y} Q ${cpX} ${cpY} ${x1} ${y}`);
+                        line.setAttribute("stroke", "#ef4444");
+                        line.setAttribute("marker-end", "url(#arrow-red)");
+                        line.setAttribute("class", "link-line link-reversed");
+                    }
+                    line.setAttribute("stroke-width", "3");
+                    line.setAttribute("fill", "none");
+                    svg.appendChild(line);
+                }
+            });
+
+            // 3. Render Nodes
+            canvas.innerHTML = '';
+            nodesData.forEach(node => {
+                const nodeEl = document.createElement('div');
+                const isProcessed = step.reversed.includes(node.id);
+                
+                nodeEl.className = `node-box absolute w-14 h-14 rounded-xl border-2 flex items-center justify-center font-bold text-lg
+                    ${isProcessed ? 'bg-slate-100 border-slate-400 text-slate-500' : 'bg-white border-slate-800 text-slate-800 shadow-md'}`;
+                
+                nodeEl.style.left = `${node.x - 28}px`;
+                nodeEl.style.top = `112px`;
+                nodeEl.innerHTML = `<span>${node.val}</span>`;
+
+                // Pointers
+                if (step.p === node.id) nodeEl.appendChild(createPointerTag('PREV', 'bg-slate-500', -45));
+                if (step.c === node.id) nodeEl.appendChild(createPointerTag('CURR', 'bg-blue-500', 65));
+                if (step.n === node.id) nodeEl.appendChild(createPointerTag('NEXT', 'bg-amber-500', 95));
+
+                canvas.appendChild(nodeEl);
+            });
+
+            // Null markers
+            if (step.c === null) {
+                const nullTag = createNullMarker('CURR=None', 'text-blue-500', 520);
+                canvas.appendChild(nullTag);
+            }
+            if (step.p === null) {
+                const nullTag = createNullMarker('PREV=None', 'text-slate-500', 20);
+                canvas.appendChild(nullTag);
+            }
+
+            // 4. Update UI
+            document.getElementById('status-text').innerText = step.msg;
+            document.getElementById('step-desc').innerText = step.msg;
+            document.getElementById('step-counter').innerText = `Step ${currentStep + 1}/${steps.length}`;
+            
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        function createPointerTag(label, color, offset) {
+            const el = document.createElement('div');
+            el.className = `pointer-label absolute left-1/2 -translate-x-1/2 flex flex-col items-center`;
+            el.style.top = `${offset}px`;
+            
+            const isTop = offset < 0;
+            if (isTop) {
+                el.innerHTML = `<span class="${color} text-white text-[9px] px-2 py-0.5 rounded-full font-black mb-1">${label}</span><div class="w-0.5 h-3 ${color}"></div>`;
+            } else {
+                el.innerHTML = `<div class="w-0.5 h-3 ${color}"></div><span class="${color} text-white text-[9px] px-2 py-0.5 rounded-full font-black mt-1">${label}</span>`;
+            }
+            return el;
+        }
+
+        function createNullMarker(text, color, x) {
+            const el = document.createElement('div');
+            el.className = `absolute ${color} text-[10px] font-mono font-bold italic`;
+            el.style.left = `${x}px`;
+            el.style.top = "130px";
+            el.innerText = text;
+            return el;
+        }
+
+        // Controls
+        const playBtn = document.getElementById('btn-play');
+        playBtn.onclick = () => {
+            if (autoTimer) {
+                clearInterval(autoTimer);
+                autoTimer = null;
+                playBtn.innerText = "继续演示";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                playBtn.innerText = "暂停演示";
+                autoTimer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        render();
+                    } else {
+                        clearInterval(autoTimer);
+                        autoTimer = null;
+                        playBtn.innerText = "重新开始";
+                    }
+                }, 1200);
+            }
+        };
+
+        document.getElementById('btn-next-step').onclick = () => { stopAuto(); if (currentStep < steps.length - 1) { currentStep++; render(); } };
+        document.getElementById('btn-prev-step').onclick = () => { stopAuto(); if (currentStep > 0) { currentStep--; render(); } };
+        document.getElementById('btn-reset').onclick = () => { stopAuto(); currentStep = 0; render(); };
+
+        function stopAuto() {
+            if (autoTimer) {
+                clearInterval(autoTimer);
+                autoTimer = null;
+                playBtn.innerText = "自动演示";
+            }
+        }
+
+        window.onload = render;
+    </script>
+</body>
+</html>
