@@ -37,6 +37,8 @@
 
 [0059. 螺旋矩阵II](./content/0059_spiral_matrix_ii.md)
 
+[0070. 爬楼梯](./content/0070_climbing_stairs.md)
+
 [0074. 搜索二维矩阵](./content/0074_search_a_2d_matrix.md)
 
 [0075. 颜色分类](./content/0075_sort_colors.md)
@@ -56,6 +58,8 @@
 [0148. 排序链表](./content/0148_sort_list.md)
 
 [0160. 相交链表](./content/0160_intersection_of_two_linked_lists.md)
+
+[0198. 打家劫舍](./content/0198_house_robber.md)
 
 [0202. 快乐数](./content/0202_happy_number.md)
 

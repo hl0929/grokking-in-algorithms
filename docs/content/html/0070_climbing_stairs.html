@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climbing Stairs Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        .step-node {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .step-active {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5));
+        }
+        .connector {
+            stroke-dasharray: 5;
+            animation: dash 1s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -10; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[600px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg">爬楼梯算法可视化</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">动态规划：状态压缩 (滚动数组)</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col items-end mr-4">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase">目标台阶 n</span>
+                    <span class="text-lg font-black text-slate-700">5</span>
+                </div>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button id="btn-prev" class="p-2 hover:bg-white rounded-lg transition-all text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-emerald-600 text-white px-6 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 min-w-[100px] shadow-md transition-all uppercase tracking-wider">开始演示</button>
+                    <button id="btn-next" class="p-2 hover:bg-white rounded-lg transition-all text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 视觉演示区 -->
+            <div class="flex-1 p-8 flex flex-col gap-8 bg-slate-50/50">
+                
+                <!-- 状态变量展示 -->
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">变量 a (n-2)</span>
+                        <div id="val-a" class="text-3xl font-black text-slate-700 mt-1 transition-all">1</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">变量 b (n-1)</span>
+                        <div id="val-b" class="text-3xl font-black text-slate-700 mt-1 transition-all">2</div>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                        <span class="text-[10px] font-bold text-amber-600 uppercase">计算 a + b</span>
+                        <div id="val-next" class="text-3xl font-black text-amber-700 mt-1 transition-all">-</div>
+                    </div>
+                </div>
+
+                <!-- 楼梯示意图 -->
+                <div class="relative flex-1 bg-white rounded-3xl border border-slate-200 shadow-inner flex items-end justify-around p-10 overflow-hidden">
+                    <svg id="stairs-svg" class="absolute inset-0 w-full h-full pointer-events-none opacity-20" preserveAspectRatio="none">
+                        <!-- 连接线 -->
+                    </svg>
+
+                    <!-- 台阶渲染 -->
+                    <div id="stairs-container" class="flex items-end justify-between w-full h-full z-10">
+                        <!-- 台阶由 JS 生成 -->
+                    </div>
+
+                    <!-- 底部标注 -->
+                    <div class="absolute bottom-4 left-0 w-full flex justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                        Stair Index & Method Count
+                    </div>
+                </div>
+
+                <!-- 思路提示 -->
+                <div id="hint-box" class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-sm text-emerald-800 font-medium">
+                    准备好开始了吗？我们将计算到达第 5 阶有多少种走法。
+                </div>
+            </div>
+
+            <!-- 代码面板 -->
+            <div class="w-[380px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-6 py-4 bg-slate-950 flex justify-between items-center border-b border-slate-800">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Python 实现</span>
+                    <span id="step-count" class="text-[10px] text-emerald-400 font-mono">0 / 0</span>
+                </div>
+                <div class="flex-1 py-6 overflow-y-auto">
+                    <code id="L_base" class="code-line">if n <= 2: return n</code>
+                    <code id="L_init" class="code-line">a, b = 1, 2  # n=1, n=2 的解</code>
+                    <code id="L_loop" class="code-line">for i in range(3, n + 1):</code>
+                    <code id="L_calc" class="code-line">    temp = a + b</code>
+                    <code id="L_shift_a" class="code-line">    a = b</code>
+                    <code id="L_shift_b" class="code-line">    b = temp</code>
+                    <code id="L_ret" class="code-line">return b</code>
+                </div>
+                <div id="log-panel" class="p-6 bg-slate-950 text-[12px] text-slate-400 border-t border-slate-800 min-h-[160px] leading-relaxed">
+                    <p class="mb-2 text-white font-bold">核心思路：</p>
+                    每个台阶的方法数是前两个台阶方法数的和。我们只需要维护两个变量即可完成计算。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const totalSteps = 5;
+        const animationSteps = [
+            { line: 'L_base', a: 1, b: 2, curr: null, next: null, msg: 'n=5 > 2，跳过基础判断。' },
+            { line: 'L_init', a: 1, b: 2, curr: null, next: null, msg: '初始化：第1阶有1种走法，第2阶有2种走法。' },
+            
+            // i = 3
+            { line: 'L_loop', a: 1, b: 2, curr: 3, next: null, msg: '开始循环，计算第 3 阶...' },
+            { line: 'L_calc', a: 1, b: 2, curr: 3, next: 3, msg: '第3阶 = 第1阶(1) + 第2阶(2) = 3 种走法。' },
+            { line: 'L_shift_a', a: 2, b: 2, curr: 3, next: 3, msg: '状态滚动：更新 a 为原来的 b。' },
+            { line: 'L_shift_b', a: 2, b: 3, curr: 3, next: 3, msg: '状态滚动：更新 b 为新计算的值。' },
+            
+            // i = 4
+            { line: 'L_loop', a: 2, b: 3, curr: 4, next: null, msg: '进入下一轮，计算第 4 阶...' },
+            { line: 'L_calc', a: 2, b: 3, curr: 4, next: 5, msg: '第4阶 = 第2阶(2) + 第3阶(3) = 5 种走法。' },
+            { line: 'L_shift_a', a: 3, b: 3, curr: 4, next: 5, msg: '状态滚动：a 移动到旧的 b。' },
+            { line: 'L_shift_b', a: 3, b: 5, curr: 4, next: 5, msg: '状态滚动：b 移动到新的和。' },
+            
+            // i = 5
+            { line: 'L_loop', a: 3, b: 5, curr: 5, next: null, msg: '最后一轮，计算第 5 阶...' },
+            { line: 'L_calc', a: 3, b: 5, curr: 5, next: 8, msg: '第5阶 = 第3阶(3) + 第4阶(5) = 8 种走法。' },
+            { line: 'L_shift_a', a: 5, b: 5, curr: 5, next: 8, msg: '状态滚动：a 更新。' },
+            { line: 'L_shift_b', a: 5, b: 8, curr: 5, next: 8, msg: '状态滚动：b 更新。' },
+            
+            { line: 'L_ret', a: 5, b: 8, curr: null, next: null, msg: '循环结束，返回 b 的值 8。' }
+        ];
+
+        let currentIdx = 0;
+        let timer = null;
+
+        // 初始化楼梯
+        function initStairs() {
+            const container = document.getElementById('stairs-container');
+            container.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const stair = document.createElement('div');
+                stair.id = `stair-${i}`;
+                stair.className = `step-node w-16 bg-slate-100 border-2 border-slate-200 rounded-t-xl flex flex-col items-center justify-end pb-4`;
+                stair.style.height = `${i * 18}%`;
+                stair.innerHTML = `
+                    <div class="method-val text-xs font-black text-slate-400 mb-1">-</div>
+                    <div class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm">${i}</div>
+                `;
+                container.appendChild(stair);
+            }
+        }
+
+        function updateUI() {
+            const step = animationSteps[currentIdx];
+            
+            // 1. 代码高亮
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+
+            // 2. 变量值更新
+            document.getElementById('val-a').innerText = step.a;
+            document.getElementById('val-b').innerText = step.b;
+            document.getElementById('val-next').innerText = step.next || '-';
+            document.getElementById('step-count').innerText = `${currentIdx + 1} / ${animationSteps.length}`;
+            document.getElementById('hint-box').innerText = step.msg;
+
+            // 3. 台阶状态更新
+            const values = {1: 1, 2: 2, 3: 3, 4: 5, 5: 8};
+            for (let i = 1; i <= 5; i++) {
+                const el = document.getElementById(`stair-${i}`);
+                const valDisplay = el.querySelector('.method-val');
+                
+                // 默认样式
+                el.className = `step-node w-16 bg-slate-50 border-2 border-slate-200 rounded-t-xl flex flex-col items-center justify-end pb-4`;
+                valDisplay.classList.replace('text-emerald-600', 'text-slate-400');
+
+                // 确定该台阶的值是否已计算
+                if (step.curr && i < step.curr) {
+                    valDisplay.innerText = values[i];
+                    el.classList.add('bg-white');
+                } else if (step.line === 'L_ret') {
+                    valDisplay.innerText = values[i];
+                    el.classList.add('bg-white');
+                } else {
+                    valDisplay.innerText = '-';
+                }
+
+                // 高亮当前计算的台阶
+                if (step.curr === i) {
+                    el.className += ' border-amber-400 bg-amber-50 step-active';
+                    if (step.next) {
+                        valDisplay.innerText = step.next;
+                        valDisplay.classList.replace('text-slate-400', 'text-emerald-600');
+                        valDisplay.classList.add('scale-125', 'font-black');
+                    }
+                }
+                
+                // 标记 a 和 b 对应的台阶
+                if (step.curr) {
+                    if (i === step.curr - 2) el.classList.add('ring-4', 'ring-blue-400/30', 'border-blue-400');
+                    if (i === step.curr - 1) el.classList.add('ring-4', 'ring-indigo-400/30', 'border-indigo-400');
+                }
+            }
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentIdx >= animationSteps.length - 1) currentIdx = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentIdx < animationSteps.length - 1) {
+                        currentIdx++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentIdx < animationSteps.length-1) {currentIdx++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentIdx > 0) {currentIdx--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        initStairs();
+        updateUI();
+    </script>
+</body>
+</html>

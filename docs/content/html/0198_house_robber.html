@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Robber Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        .house-card {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .house-robbed {
+            transform: translateY(-10px);
+            border-color: #ef4444 !important;
+            box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.2);
+        }
+        .house-skipped {
+            opacity: 0.6;
+            filter: grayscale(1);
+        }
+        .decision-bubble {
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[650px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg">打家劫舍算法可视化</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心思想：dp[i] = max(dp[i-1], dp[i-2] + nums[i])</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-600 border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-rose-600 text-white px-6 py-2 rounded-lg text-xs font-bold hover:bg-rose-700 min-w-[100px] shadow-md transition-all uppercase tracking-wider">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-600 border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 视觉演示区 -->
+            <div class="flex-1 p-8 flex flex-col gap-6 bg-slate-50/50 relative">
+                
+                <!-- 状态变量 -->
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">prev2 (截止前前一间最大收益)</span>
+                        <div id="val-prev2" class="text-2xl font-black text-slate-700 mt-1">0</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">prev1 (截止前一间最大收益)</span>
+                        <div id="val-prev1" class="text-2xl font-black text-slate-700 mt-1">0</div>
+                    </div>
+                </div>
+
+                <!-- 房子区域 -->
+                <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-inner flex items-center justify-around p-8 relative">
+                    <div id="houses-container" class="flex items-end justify-center gap-6 w-full h-48">
+                        <!-- Houses generated by JS -->
+                    </div>
+
+                    <!-- 决策逻辑浮层 -->
+                    <div id="decision-panel" class="absolute inset-x-0 bottom-8 flex justify-center opacity-0 transition-all duration-500 translate-y-4">
+                        <div class="bg-slate-800 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700">
+                           <div class="flex flex-col items-center">
+                               <span class="text-[10px] text-slate-400 uppercase">选择 A: 不偷</span>
+                               <span id="opt-skip" class="font-mono text-lg font-bold">0</span>
+                           </div>
+                           <div class="h-8 w-px bg-slate-600"></div>
+                           <div class="text-xl font-black text-rose-400">VS</div>
+                           <div class="h-8 w-px bg-slate-600"></div>
+                           <div class="flex flex-col items-center">
+                               <span class="text-[10px] text-slate-400 uppercase">选择 B: 偷 (收益+前前)</span>
+                               <span id="opt-rob" class="font-mono text-lg font-bold">0</span>
+                           </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文字提示 -->
+                <div id="hint-box" class="bg-white border border-slate-200 p-4 rounded-xl text-sm text-slate-600 font-medium shadow-sm">
+                    准备开始... 输入数组为 [1, 2, 3, 1]
+                </div>
+            </div>
+
+            <!-- 代码面板 -->
+            <div class="w-[360px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-6 py-4 bg-slate-950 flex justify-between items-center border-b border-slate-800">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">House Robber Logic</span>
+                    <span id="step-info" class="text-[10px] text-rose-400 font-mono">STEP 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-y-auto">
+                    <code id="L_init_p2" class="code-line">prev2 = nums[0]  # 第1家</code>
+                    <code id="L_init_p1" class="code-line">prev1 = max(nums[0], nums[1]) # 前2家</code>
+                    <code id="L_loop" class="code-line">for i in range(2, len(nums)):</code>
+                    <code id="L_curr" class="code-line">    curr = max(prev1, prev2 + nums[i])</code>
+                    <code id="L_move_p2" class="code-line">    prev2 = prev1</code>
+                    <code id="L_move_p1" class="code-line">    prev1 = curr</code>
+                    <code id="L_ret" class="code-line">return prev1</code>
+                </div>
+                <div class="p-6 bg-slate-950 text-[11px] text-slate-400 border-t border-slate-800 leading-relaxed">
+                    <p class="text-white font-bold mb-1">决策核心：</p>
+                    <p>对于每一家房子，我们都在权衡：“如果偷这一家，就要放弃前一家” 还是 “直接沿用偷完前一家的最优解”。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nums = [1, 2, 3, 1];
+        const animationSteps = [
+            { line: 'L_init_p2', p2: 1, p1: 0, i: 0, msg: "初始化 prev2：只考虑第一家，最大金额为 1。", decision: null },
+            { line: 'L_init_p1', p2: 1, p1: 2, i: 1, msg: "初始化 prev1：前两家选大的偷，max(1, 2) = 2。", decision: null },
+            
+            // i = 2 (Value: 3)
+            { line: 'L_loop', p2: 1, p1: 2, i: 2, msg: "开始循环：考虑第 3 间房子 (金额 3)...", decision: null },
+            { line: 'L_curr', p2: 1, p1: 2, i: 2, curr: 4, msg: "决策：不偷(prev1=2) VS 偷(prev2+3=4)。选择偷！", decision: {skip: 2, rob: 4} },
+            { line: 'L_move_p2', p2: 2, p1: 2, i: 2, curr: 4, msg: "状态移动：prev2 指向旧的 prev1 (2)。", decision: null },
+            { line: 'L_move_p1', p2: 2, p1: 4, i: 2, curr: 4, msg: "状态移动：prev1 指向新的最大收益 (4)。", decision: null },
+            
+            // i = 3 (Value: 1)
+            { line: 'L_loop', p2: 2, p1: 4, i: 3, msg: "进入下一轮：考虑第 4 间房子 (金额 1)...", decision: null },
+            { line: 'L_curr', p2: 2, p1: 4, i: 3, curr: 4, msg: "决策：不偷(prev1=4) VS 偷(prev2+1=3)。选择不偷！", decision: {skip: 4, rob: 3} },
+            { line: 'L_move_p2', p2: 4, p1: 4, i: 3, curr: 4, msg: "状态移动：prev2 移动。", decision: null },
+            { line: 'L_move_p1', p2: 4, p1: 4, i: 3, curr: 4, msg: "状态移动：prev1 保持最优收益 4。", decision: null },
+            
+            { line: 'L_ret', p2: 4, p1: 4, i: null, msg: "遍历结束。最终能偷到的最大金额是 4。", decision: null }
+        ];
+
+        let currentIdx = 0;
+        let timer = null;
+
+        function initHouses() {
+            const container = document.getElementById('houses-container');
+            container.innerHTML = '';
+            nums.forEach((val, idx) => {
+                const house = document.createElement('div');
+                house.id = `house-${idx}`;
+                house.className = `house-card w-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-3 h-32 relative`;
+                house.innerHTML = `
+                    <div class="text-2xl mb-1">🏠</div>
+                    <div class="text-xs font-bold text-slate-400">#${idx}</div>
+                    <div class="text-xl font-black text-slate-700">$${val}</div>
+                    <div id="mark-${idx}" class="absolute -top-3 hidden bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">ROBBED</div>
+                `;
+                container.appendChild(house);
+            });
+        }
+
+        function updateUI() {
+            const step = animationSteps[currentIdx];
+            
+            // 1. 代码行
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+
+            // 2. 变量
+            document.getElementById('val-prev2').innerText = step.p2;
+            document.getElementById('val-prev1').innerText = step.p1;
+            document.getElementById('step-info').innerText = `STEP ${currentIdx + 1}`;
+            document.getElementById('hint-box').innerText = step.msg;
+
+            // 3. 决策面板
+            const dPanel = document.getElementById('decision-panel');
+            if (step.decision) {
+                dPanel.classList.remove('opacity-0', 'translate-y-4');
+                document.getElementById('opt-skip').innerText = step.decision.skip;
+                document.getElementById('opt-rob').innerText = step.decision.rob;
+                
+                // 高亮大的那个
+                document.getElementById('opt-skip').className = step.decision.skip >= step.decision.rob ? "font-mono text-lg font-bold text-emerald-400" : "font-mono text-lg font-bold";
+                document.getElementById('opt-rob').className = step.decision.rob > step.decision.skip ? "font-mono text-lg font-bold text-emerald-400" : "font-mono text-lg font-bold";
+            } else {
+                dPanel.classList.add('opacity-0', 'translate-y-4');
+            }
+
+            // 4. 房子视觉
+            nums.forEach((_, idx) => {
+                const el = document.getElementById(`house-${idx}`);
+                const mark = document.getElementById(`mark-${idx}`);
+                el.className = "house-card w-20 bg-slate-50 border-2 border-slate-200 rounded-2xl flex flex-col items-center justify-center p-3 h-32 relative";
+                mark.classList.add('hidden');
+
+                // 标记 prev1 和 prev2 的位置
+                if (step.line !== 'L_ret') {
+                   if (idx === step.i - 2) el.classList.add('ring-4', 'ring-blue-400/30', 'border-blue-500');
+                   if (idx === step.i - 1) el.classList.add('ring-4', 'ring-indigo-400/30', 'border-indigo-500');
+                   if (idx === step.i) el.classList.add('bg-white', 'border-rose-400', 'scale-110', 'z-10', 'shadow-lg', 'border-solid');
+                }
+
+                // 在最终或决策阶段展示路径（模拟示意）
+                // 逻辑：如果当前最优解(curr)是因为偷了这家产生的，则显示ROBBED
+                if (step.decision && idx === step.i && step.decision.rob > step.decision.skip) {
+                    mark.classList.remove('hidden');
+                    el.classList.add('house-robbed');
+                }
+            });
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentIdx >= animationSteps.length - 1) currentIdx = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentIdx < animationSteps.length - 1) {
+                        currentIdx++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1500);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentIdx < animationSteps.length-1) {currentIdx++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentIdx > 0) {currentIdx--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        initHouses();
+        updateUI();
+    </script>
+</body>
+</html>
