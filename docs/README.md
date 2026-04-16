@@ -77,6 +77,8 @@
 
 [0283. 移动零](./content/0283_move_zeroes.md)
 
+[0322. 零钱兑换](./content/0322_coin_change.md)
+
 [0347. 前 K 个高频元素](./content/0347_top_k_frequent_elements.md)
 
 [0406. 根据身高重建队列](./content/0406_queue_reconstruction_by_height.md)

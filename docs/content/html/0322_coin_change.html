@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>零钱兑换算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        .dp-cell {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dp-cell.highlight {
+            transform: scale(1.1);
+            z-index: 10;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .dp-cell.target {
+            background-color: #dbeafe;
+            border-color: #3b82f6 !important;
+        }
+        .dp-cell.lookback {
+            background-color: #fef3c7;
+            border-color: #f59e0b !important;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .coin-chip {
+            background: linear-gradient(135deg, #fbbf24, #d97706);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[700px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">零钱兑换算法可视化</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心思想：dp[i] = min(dp[i], dp[i - coin] + 1)</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-prev" class="p-2.5 hover:bg-slate-100 rounded-xl transition-all text-slate-600 border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-md transition-all uppercase tracking-wider">开始演示</button>
+                <button id="btn-next" class="p-2.5 hover:bg-slate-100 rounded-xl transition-all text-slate-600 border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 视觉演示区 -->
+            <div class="flex-1 p-8 flex flex-col gap-6 bg-slate-50/50">
+                
+                <!-- 硬币面额展示 -->
+                <div class="flex items-center gap-4 mb-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase">可用硬币:</span>
+                    <div id="coins-list" class="flex gap-2">
+                        <!-- Coins from JS -->
+                    </div>
+                </div>
+
+                <!-- DP Table -->
+                <div class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col justify-center overflow-x-auto">
+                    <div class="text-xs font-bold text-slate-400 uppercase mb-4 text-center">dp 数组（索引 i 代表金额，值代表最少硬币数）</div>
+                    <div id="dp-table" class="flex gap-2 justify-center min-w-max pb-4">
+                        <!-- DP cells from JS -->
+                    </div>
+                    
+                    <!-- 转移关系连线模拟 (逻辑描述) -->
+                    <div id="transfer-logic" class="mt-8 h-24 border-t border-slate-100 pt-6 relative flex justify-center items-start text-center">
+                        <div id="logic-text" class="text-slate-500 text-sm max-w-md italic">
+                            正在初始化 dp[0] = 0...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部说明 -->
+                <div id="hint-box" class="bg-white border border-slate-200 p-4 rounded-2xl text-sm text-slate-600 font-medium shadow-sm flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></div>
+                    <span>目标金额: 11, 初始化数组为 Infinity</span>
+                </div>
+            </div>
+
+            <!-- 代码面板 -->
+            <div class="w-[380px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-6 py-4 bg-slate-950 flex justify-between items-center border-b border-slate-800">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Coin Change Logic</span>
+                    <span id="step-info" class="text-[10px] text-indigo-400 font-mono">STEP 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-y-auto">
+                    <code id="L_init" class="code-line">dp = [float("inf")] * (amount + 1)</code>
+                    <code id="L_base" class="code-line">dp[0] = 0</code>
+                    <code id="L_loop_i" class="code-line">for i in range(1, amount + 1):</code>
+                    <code id="L_loop_c" class="code-line">    for coin in coins:</code>
+                    <code id="L_check" class="code-line">        if i >= coin:</code>
+                    <code id="L_update" class="code-line">            dp[i] = min(dp[i], 1 + dp[i-coin])</code>
+                    <code id="L_ret" class="code-line">return dp[amount] if ... else -1</code>
+                </div>
+                <div class="p-6 bg-slate-950 text-[11px] text-slate-400 border-t border-slate-800 leading-relaxed">
+                    <p class="text-white font-bold mb-2">最优子结构：</p>
+                    <p>凑出 $11$ 的最优解 = <br>
+                       min(<br>
+                       &nbsp;&nbsp;凑出 $11-1=10$ 的解 + 1枚$1$,<br>
+                       &nbsp;&nbsp;凑出 $11-2=9$ 的解 + 1枚$2$,<br>
+                       &nbsp;&nbsp;凑出 $11-5=6$ 的解 + 1枚$5$<br>
+                       )
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const coins = [1, 2, 5];
+        const amount = 11;
+        
+        // 构建简化的关键步骤演示
+        // 并不是每一轮循环都展示（那样步数太多），只展示关键的 DP 值更新
+        const animationSteps = [
+            { line: 'L_init', i: null, c: null, dp: Array(12).fill('∞'), msg: "初始化 dp 数组，除 dp[0] 外均为无穷大。" },
+            { line: 'L_base', i: 0, c: null, dp: [0, ...Array(11).fill('∞')], msg: "金额为 0 时，需要 0 枚硬币。" },
+            
+            // i = 1
+            { line: 'L_update', i: 1, c: 1, dp: [0, 1, ...Array(10).fill('∞')], msg: "金额 1: 减去硬币 1 后剩余 0。dp[1] = min(∞, dp[0]+1) = 1", lookback: 0 },
+            
+            // i = 2
+            { line: 'L_update', i: 2, c: 1, dp: [0, 1, 2, ...Array(9).fill('∞')], msg: "金额 2: 使用硬币 1。dp[2] = dp[1]+1 = 2", lookback: 1 },
+            { line: 'L_update', i: 2, c: 2, dp: [0, 1, 1, ...Array(9).fill('∞')], msg: "金额 2: 使用硬币 2。dp[2] = min(2, dp[0]+1) = 1", lookback: 0 },
+            
+            // i = 5 (跳过中间简单的部分)
+            { line: 'L_loop_i', i: 5, c: null, dp: [0, 1, 1, 2, 2, '∞', '∞', '∞', '∞', '∞', '∞', '∞'], msg: "跳转到金额 5..." },
+            { line: 'L_update', i: 5, c: 5, dp: [0, 1, 1, 2, 2, 1, '∞', '∞', '∞', '∞', '∞', '∞'], msg: "金额 5: 直接使用硬币 5。dp[5] = min(prev, dp[0]+1) = 1", lookback: 0 },
+            
+            // i = 6
+            { line: 'L_update', i: 6, c: 5, dp: [0, 1, 1, 2, 2, 1, 2, '∞', '∞', '∞', '∞', '∞'], msg: "金额 6: 使用 5 元。dp[6] = dp[1]+1 = 2", lookback: 1 },
+            
+            // i = 11 (最终结果)
+            { line: 'L_loop_i', i: 11, c: null, dp: [0, 1, 1, 2, 2, 1, 2, 2, 3, 3, 2, '∞'], msg: "最后处理目标金额 11..." },
+            { line: 'L_update', i: 11, c: 1, dp: [0, 1, 1, 2, 2, 1, 2, 2, 3, 3, 2, 3], msg: "选硬币 1: dp[11] = dp[10]+1 = 3", lookback: 10 },
+            { line: 'L_update', i: 11, c: 2, dp: [0, 1, 1, 2, 2, 1, 2, 2, 3, 3, 2, 3], msg: "选硬币 2: dp[11] = min(3, dp[9]+1) = 3", lookback: 9 },
+            { line: 'L_update', i: 11, c: 5, dp: [0, 1, 1, 2, 2, 1, 2, 2, 3, 3, 2, 3], msg: "选硬币 5: dp[11] = min(3, dp[6]+1) = 3", lookback: 6 },
+            
+            { line: 'L_ret', i: 11, c: null, dp: [0, 1, 1, 2, 2, 1, 2, 2, 3, 3, 2, 3], msg: "计算完成！凑齐 11 元最少需要 3 枚硬币。" }
+        ];
+
+        let currentIdx = 0;
+        let timer = null;
+
+        function initUI() {
+            // Init Coins
+            const coinList = document.getElementById('coins-list');
+            coins.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'coin-chip px-3 py-1 rounded-full text-white text-xs font-bold';
+                el.innerText = `$${c}`;
+                coinList.appendChild(el);
+            });
+
+            // Init DP Cells
+            const dpTable = document.getElementById('dp-table');
+            for(let i=0; i<=amount; i++) {
+                const cell = document.createElement('div');
+                cell.id = `dp-${i}`;
+                cell.className = 'dp-cell w-12 h-16 border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center bg-white';
+                cell.innerHTML = `
+                    <span class="text-[9px] text-slate-400 font-bold mb-1">${i}</span>
+                    <span class="val text-sm font-black text-slate-700">?</span>
+                `;
+                dpTable.appendChild(cell);
+            }
+        }
+
+        function updateUI() {
+            const step = animationSteps[currentIdx];
+            
+            // 1. Code highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+
+            // 2. DP Table update
+            step.dp.forEach((val, idx) => {
+                const cell = document.getElementById(`dp-${idx}`);
+                cell.querySelector('.val').innerText = val;
+                cell.className = 'dp-cell w-12 h-16 border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center bg-white';
+                
+                if (idx === step.i) cell.classList.add('target');
+                if (idx === step.lookback) cell.classList.add('lookback');
+            });
+
+            // 3. Status
+            document.getElementById('step-info').innerText = `STEP ${currentIdx + 1}`;
+            document.getElementById('logic-text').innerText = step.msg;
+            document.getElementById('hint-box').querySelector('span').innerText = step.msg;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentIdx >= animationSteps.length - 1) currentIdx = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentIdx < animationSteps.length - 1) {
+                        currentIdx++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1800);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentIdx < animationSteps.length-1) {currentIdx++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentIdx > 0) {currentIdx--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        initUI();
+        updateUI();
+    </script>
+</body>
+</html>
