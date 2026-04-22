@@ -3,6 +3,8 @@
 
 [0004_median_of_two_sorted_arrays](./html/0004_median_of_two_sorted_arrays.html ":include :type=iframe")
 
+<a href="./content/html/0004_median_of_two_sorted_arrays.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def median_sorted_arrays(nums1, nums2):
     if len(nums1) > len(nums2):

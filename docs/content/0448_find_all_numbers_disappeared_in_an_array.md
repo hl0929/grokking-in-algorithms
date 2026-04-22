@@ -3,6 +3,8 @@
 
 [0448_find_all_numbers_disappeared_in_an_array](./html/0448_find_all_numbers_disappeared_in_an_array.html ":include :type=iframe")
 
+<a href="./content/html/0448_find_all_numbers_disappeared_in_an_array.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def find_disappeared_number(nums):
     for num in nums:

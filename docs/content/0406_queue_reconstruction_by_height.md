@@ -3,6 +3,8 @@
 
 [0406_queue_reconstruction_by_height](./html/0406_queue_reconstruction_by_height.html ':include :type=iframe')
 
+<a href="./content/html/0406_queue_reconstruction_by_height.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def queue_reconstruction(people):
     people.sort(key=lambda x: (-x[0], x[1]))

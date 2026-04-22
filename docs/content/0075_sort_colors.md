@@ -3,6 +3,8 @@
 
 [0075_sort_colors](./html/0075_sort_colors.html ":include :type=iframe")
 
+<a href="./content/html/0075_sort_colors.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def sort_colors(nums):
     left, right = 0, len(nums) - 1

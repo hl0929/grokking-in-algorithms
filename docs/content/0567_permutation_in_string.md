@@ -3,6 +3,8 @@
 
 [0567_permutation_in_string](./html/0567_permutation_in_string.html ":include :type=iframe")
 
+<a href="./content/html/0567_permutation_in_string.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def check_inclusion(s1, s2):
     if not s1 or not s2:

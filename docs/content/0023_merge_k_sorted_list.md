@@ -3,6 +3,8 @@
 
 [0023_merge_k_sorted_list](./html/0023_merge_k_sorted_list.html ":include :type=iframe")
 
+<a href="./content/html/0023_merge_k_sorted_list.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):

@@ -3,6 +3,7 @@
 
 [0283_move_zeroes](./html/0283_move_zeroes.html ":include :type=iframe")
 
+<a href="./content/html/0283_move_zeroes.html" target="_blank">点击此处在新窗口打开</a>
 
 ```python
 def move_zeroes(nums):

@@ -3,6 +3,8 @@
 
 [0438_find_all_anagrams_in_a_string](./html/0438_find_all_anagrams_in_a_string.html ":include :type=iframe")
 
+<a href="./content/html/0438_find_all_anagrams_in_a_string.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def find_anagrams(s, p):
     if not s or not p or len(s) < len(p):

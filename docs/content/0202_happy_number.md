@@ -3,6 +3,8 @@
 
 [0202_happy_number](./html/0202_happy_number.html ":include :type=iframe")
 
+<a href="./content/html/0202_happy_number.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def happy_number(n):
     def get_next(x):

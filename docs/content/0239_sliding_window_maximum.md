@@ -3,6 +3,8 @@
 
 [0239_sliding_window_maximum](./html/0239_sliding_window_maximum.html ":include :type=iframe")
 
+<a href="./content/html/0239_sliding_window_maximum.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def max_sliding_window(nums, k):
     if not nums or k == 0:

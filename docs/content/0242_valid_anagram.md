@@ -3,6 +3,8 @@
 
 [0242_valid_anagram](./html/0242_valid_anagram.html ":include :type=iframe")
 
+<a href="./content/html/0242_valid_anagram.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def valid_anagram(s, t):
     if len(s) != len(t):

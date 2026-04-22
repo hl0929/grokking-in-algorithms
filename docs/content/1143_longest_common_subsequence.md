@@ -3,6 +3,8 @@
 
 [1143_longest_common_subsequence](./html/1143_longest_common_subsequence.html ":include :type=iframe")
 
+<a href="./content/html/1143_longest_common_subsequence.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def longest_common_subsequence(text1, text2):
     m, n = len(text1), len(text2)

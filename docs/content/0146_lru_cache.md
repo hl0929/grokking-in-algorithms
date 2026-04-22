@@ -3,6 +3,9 @@
 
 [0146_lru_cache](./html/0146_lru_cache.html ":include :type=iframe")
 
+<a href="./content/html/0146_lru_cache.html" target="_blank">点击此处在新窗口打开</a>
+
+
 ```python
 from collections import OrderedDict
 

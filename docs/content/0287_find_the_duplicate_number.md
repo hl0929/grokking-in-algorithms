@@ -3,6 +3,8 @@
 
 [0287_find_the_duplicate_number](./html/0287_find_the_duplicate_number.html ":include :type=iframe")
 
+<a href="./content/html/0287_find_the_duplicate_number.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def find_duplicate(nums):
     slow = 0

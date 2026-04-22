@@ -3,6 +3,8 @@
 
 [0160_intersection_of_two_linked_lists](./html/0160_intersection_of_two_linked_lists.html ":include :type=iframe")
 
+<a href="./content/html/0160_intersection_of_two_linked_lists.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):

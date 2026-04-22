@@ -3,6 +3,8 @@
 
 [0049_group_anagrams](./html/0049_group_anagrams.html ":include :type=iframe")
 
+<a href="./content/html/0049_group_anagrams.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def group_anagrams(strs):
     groups = dict()

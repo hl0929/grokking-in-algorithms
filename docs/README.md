@@ -17,6 +17,8 @@
 
 [0019. 删除链表的倒数第 N 个结点](./content/0019_remove_nth_node_from_end_of_list.md)
 
+[0020. 有效的括号](./content/0020_valid_parentheses.md)
+
 [0021. 合并两个有序链表](./content/0021_merge_two_sorted_list.md)
 
 [0023. 合并K个有序链表](./content/0023_merge_k_sorted_list.md)
@@ -39,6 +41,8 @@
 
 [0070. 爬楼梯](./content/0070_climbing_stairs.md)
 
+[0072. 编辑距离](./content/0072_edit_distance.md)
+
 [0074. 搜索二维矩阵](./content/0074_search_a_2d_matrix.md)
 
 [0075. 颜色分类](./content/0075_sort_colors.md)
@@ -56,6 +60,8 @@
 [0146. LRU 缓存](./content/0146_lru_cache.md)
 
 [0148. 排序链表](./content/0148_sort_list.md)
+
+[0155. 最小栈](./content/0155_min_stack.md)
 
 [0160. 相交链表](./content/0160_intersection_of_two_linked_lists.md)
 
@@ -80,6 +86,8 @@
 [0322. 零钱兑换](./content/0322_coin_change.md)
 
 [0347. 前 K 个高频元素](./content/0347_top_k_frequent_elements.md)
+
+[0394. 字符串解码](./content/0394_decode_string.md)
 
 [0406. 根据身高重建队列](./content/0406_queue_reconstruction_by_height.md)
 

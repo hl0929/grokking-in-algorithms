@@ -3,6 +3,8 @@
 
 [0322_coin_change](./html/0322_coin_change.html ":include :type=iframe")
 
+<a href="./content/html/0322_coin_change.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def coin_change(coins, amount):
     if amount <= 0:

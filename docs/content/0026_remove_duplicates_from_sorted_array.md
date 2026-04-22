@@ -3,6 +3,8 @@
 
 [0026_remove_duplicates_from_sorted_array](./html/0026_remove_duplicates_from_sorted_array.html ":include :type=iframe")
 
+<a href="./content/html/0026_remove_duplicates_from_sorted_array.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def remove_duplicates(nums):
     if not nums:

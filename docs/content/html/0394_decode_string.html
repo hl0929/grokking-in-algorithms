@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字符串解码可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        
+        .stack-item {
+            animation: slideIn 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .char-box {
+            width: 40px;
+            height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 0 2px;
+            transition: all 0.3s;
+        }
+
+        .char-active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            transform: translateY(-5px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .code-line {
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[750px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">字符串解码 (Decode String)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心：利用栈记录进入嵌套前的现场</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                <button id="btn-reset" class="ml-2 p-2 text-slate-400 hover:text-blue-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visual Area -->
+            <div class="flex-1 p-8 flex flex-col bg-slate-50/50">
+                
+                <!-- String Input View -->
+                <div class="mb-10 text-center">
+                    <div class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest">当前处理字符串</div>
+                    <div id="input-string" class="flex justify-center">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- State View -->
+                <div class="grid grid-cols-2 gap-8 mb-8">
+                    <!-- Variable State -->
+                    <div class="space-y-4">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                            <div class="text-[10px] font-bold text-slate-400 mb-1 uppercase">cur_num (倍数)</div>
+                            <div id="val-num" class="text-3xl font-mono font-bold text-blue-600">0</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                            <div class="text-[10px] font-bold text-slate-400 mb-1 uppercase">cur_str (当前层积累)</div>
+                            <div id="val-str" class="text-2xl font-mono font-medium text-slate-700 min-h-[40px]">""</div>
+                        </div>
+                    </div>
+
+                    <!-- Stack View -->
+                    <div class="bg-slate-200/50 rounded-2xl p-4 border-2 border-dashed border-slate-300 flex flex-col items-center">
+                        <div class="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-widest">STACK (存储现场)</div>
+                        <div id="stack-container" class="w-full flex flex-col-reverse gap-2">
+                            <!-- Stack items -->
+                            <div class="text-slate-400 text-xs italic py-4 text-center">栈为空</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step Description -->
+                <div id="step-desc" class="mt-auto bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
+                    <div class="flex items-center gap-3 mb-1">
+                        <span id="step-tag" class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded uppercase">INIT</span>
+                        <h3 id="step-title" class="font-bold text-slate-800">准备就绪</h3>
+                    </div>
+                    <p id="step-detail" class="text-slate-500 text-sm">点击演示按钮开始解析 3[a2[c]]</p>
+                </div>
+            </div>
+
+            <!-- Code Area -->
+            <div class="w-[380px] bg-[#0f172a] flex flex-col border-l border-slate-800">
+                <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Python Implementation</span>
+                    <div id="step-counter" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">0 / 0</div>
+                </div>
+                <div class="flex-1 py-4 code-font">
+                    <div id="L0" class="code-line">for ch in s:</div>
+                    <div id="L1" class="code-line ml-4">if ch.isdigit():</div>
+                    <div id="L2" class="code-line ml-8">cur_num = cur_num * 10 + int(ch)</div>
+                    <div id="L3" class="code-line ml-4">elif ch == "[":</div>
+                    <div id="L4" class="code-line ml-8">stack.append([cur_str, cur_num])</div>
+                    <div id="L5" class="code-line ml-8">cur_str, cur_num = "", 0</div>
+                    <div id="L6" class="code-line ml-4">elif ch == "]":</div>
+                    <div id="L7" class="code-line ml-8">prev_str, num = stack.pop()</div>
+                    <div id="L8" class="code-line ml-8">cur_str = prev_str + cur_str * num</div>
+                    <div id="L9" class="code-line ml-4">else:</div>
+                    <div id="L10" class="code-line ml-8">cur_str += ch</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const s = "3[a2[c]]";
+        const steps = [
+            { chIdx: -1, line: "L0", num: 0, str: "", stack: [], tag: "START", title: "初始化", detail: "开始遍历字符串。" },
+            { chIdx: 0, line: "L2", num: 3, str: "", stack: [], tag: "DIGIT", title: "遇到数字 '3'", detail: "更新 cur_num 为 3。" },
+            { chIdx: 1, line: "L4", num: 3, str: "", stack: [], tag: "OPEN", title: "遇到 '['", detail: "将当前字符串 \"\" 和倍数 3 入栈保护。" },
+            { chIdx: 1, line: "L5", num: 0, str: "", stack: [["", 3]], tag: "OPEN", title: "重置状态", detail: "清空 cur_str 和 cur_num 以处理括号内部内容。" },
+            { chIdx: 2, line: "L10", num: 0, str: "a", stack: [["", 3]], tag: "CHAR", title: "遇到字母 'a'", detail: "将其添加到当前层的 cur_str 中。" },
+            { chIdx: 3, line: "L2", num: 2, str: "a", stack: [["", 3]], tag: "DIGIT", title: "遇到数字 '2'", detail: "更新 cur_num 为 2。" },
+            { chIdx: 4, line: "L4", num: 2, str: "a", stack: [["", 3]], tag: "OPEN", title: "再次遇到 '['", detail: "将上一层积累的 \"a\" 和当前倍数 2 入栈。" },
+            { chIdx: 4, line: "L5", num: 0, str: "", stack: [["", 3], ["a", 2]], tag: "OPEN", title: "进入深层嵌套", detail: "重置状态准备处理最内层。" },
+            { chIdx: 5, line: "L10", num: 0, str: "c", stack: [["", 3], ["a", 2]], tag: "CHAR", title: "遇到字母 'c'", detail: "最内层 cur_str 变为 \"c\"。" },
+            { chIdx: 6, line: "L7", num: 0, str: "c", stack: [["", 3], ["a", 2]], tag: "CLOSE", title: "遇到第一个 ']'", detail: "从栈中弹出上一次的状态: prev=\"a\", num=2。" },
+            { chIdx: 6, line: "L8", num: 0, str: "acc", stack: [["", 3]], tag: "CLOSE", title: "解码内层", detail: "计算 \"a\" + \"c\" * 2 = \"acc\"。" },
+            { chIdx: 7, line: "L7", num: 0, str: "acc", stack: [["", 3]], tag: "CLOSE", title: "遇到第二个 ']'", detail: "从栈中弹出最初的状态: prev=\"\", num=3。" },
+            { chIdx: 7, line: "L8", num: 0, str: "accaccacc", stack: [], tag: "CLOSE", title: "完成解码", detail: "计算 \"\" + \"acc\" * 3 = \"accaccacc\"。" }
+        ];
+
+        let currentStep = 0;
+        let timer = null;
+
+        function initUI() {
+            const inputContainer = document.getElementById('input-string');
+            inputContainer.innerHTML = s.split('').map((char, i) => `
+                <div id="ch-${i}" class="char-box text-slate-400">${char}</div>
+            `).join('');
+            updateUI();
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+            
+            // Highlight String
+            document.querySelectorAll('.char-box').forEach((el, i) => {
+                el.className = `char-box ${i === step.chIdx ? 'char-active' : (i < step.chIdx ? 'text-slate-800 bg-slate-100 border-slate-300' : 'text-slate-400')}`;
+            });
+
+            // Highlight Code
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+
+            // Update States
+            document.getElementById('val-num').innerText = step.num;
+            document.getElementById('val-str').innerText = step.str === "" ? '""' : `"${step.str}"`;
+
+            // Update Stack
+            const stackContainer = document.getElementById('stack-container');
+            if (step.stack.length === 0) {
+                stackContainer.innerHTML = '<div class="text-slate-400 text-xs italic py-4 text-center w-full">栈为空</div>';
+            } else {
+                stackContainer.innerHTML = step.stack.map(item => `
+                    <div class="stack-item bg-white border border-slate-200 rounded-lg p-2 shadow-sm flex justify-between items-center">
+                        <span class="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500 font-bold uppercase">prev: "${item[0]}"</span>
+                        <span class="text-xs font-mono font-bold text-blue-600">x${item[1]}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update Text
+            document.getElementById('step-tag').innerText = step.tag;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1500);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('btn-reset').onclick = () => {
+            currentStep = 0;
+            if(timer) play();
+            updateUI();
+        };
+
+        initUI();
+    </script>
+</body>
+</html>

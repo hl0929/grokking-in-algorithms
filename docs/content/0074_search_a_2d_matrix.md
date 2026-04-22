@@ -3,6 +3,8 @@
 
 [0074_search_a_2d_matrix](./html/0074_search_a_2d_matrix.html ":include :type=iframe")
 
+<a href="./content/html/0074_search_a_2d_matrix.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def search_matrix(matrix, target):
     m, n = len(matrix), len(matrix[0])

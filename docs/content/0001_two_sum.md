@@ -3,6 +3,8 @@
 
 [0001_two_sum](./html/0001_two_sum.html ":include :type=iframe")
 
+<a href="./content/html/0001_two_sum.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def two_sum(nums, target):
     hashmap = dict()

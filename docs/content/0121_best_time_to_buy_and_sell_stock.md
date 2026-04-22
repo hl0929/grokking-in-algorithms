@@ -3,6 +3,7 @@
 
 [0121_best_time_to_buy_and_sell_stock](./html/0121_best_time_to_buy_and_sell_stock.html ':include :type=iframe')
 
+<a href="./content/html/0121_best_time_to_buy_and_sell_stock.html" target="_blank">点击此处在新窗口打开</a>
 
 我们要聊的这道 **LeetCode 121. 买卖股票的最佳时机**，它的核心思想是 **“贪心思维”与“动态记录”**。如果说两数之和是“找另一半”，那么这道股票题就是 **“寻找后悔药”**。
 

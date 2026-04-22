@@ -3,6 +3,7 @@
 
 [0876_middle_of_the_linked_list](./html/0876_middle_of_the_linked_list.html ":include :type=iframe")
 
+<a href="./content/html/0876_middle_of_the_linked_list.html" target="_blank">点击此处在新窗口打开</a>
 
 ```python
 class ListNode:

@@ -3,6 +3,8 @@
 
 [0034_find_first_and_last_position_of_element_in_sorted_array](./html/0034_find_first_and_last_position_of_element_in_sorted_array.html ':include :type=iframe')
 
+<a href="./content/html/0034_find_first_and_last_position_of_element_in_sorted_array.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def find_range(nums, target):
     def binary_search(nums, find_left):

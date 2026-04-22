@@ -3,6 +3,8 @@
 
 [0003_longest_substring_without_repeating_characters](./html/0003_longest_substring_without_repeating_characters.html ":include :type=iframe")
 
+<a href="./content/html/0003_longest_substring_without_repeating_characters.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def longest_substring(s):
     nonrepeat_set = set()

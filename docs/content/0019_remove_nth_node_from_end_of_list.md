@@ -3,6 +3,8 @@
 
 [0019_remove_nth_node_from_end_of_list](./html/0019_remove_nth_node_from_end_of_list.html ":include :type=iframe")
 
+<a href="./content/html/0019_remove_nth_node_from_end_of_list.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):

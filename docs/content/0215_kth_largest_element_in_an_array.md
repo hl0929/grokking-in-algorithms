@@ -1,7 +1,9 @@
 
 [215. Kth Largest Element in an Array](https://leetcode.com/problems/kth-largest-element-in-an-array/description/)
 
-[0215-kth-largest-element-in-an-array](./html/0215_kth_largest_element_in_an_array.html ':include :type=iframe')
+[0215_kth_largest_element_in_an_array](./html/0215_kth_largest_element_in_an_array.html ':include :type=iframe')
+
+<a href="./content/html/0215_kth_largest_element_in_an_array.html" target="_blank">点击此处在新窗口打开</a>
 
 ```python
 import random

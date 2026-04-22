@@ -3,6 +3,8 @@
 
 [0347_top_k_frequent_elements](./html/0347_top_k_frequent_elements.html ":include :type=iframe")
 
+<a href="./content/html/0347_top_k_frequent_elements.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def topk_frequent(nums, k):
     freq_dict = dict()

@@ -3,6 +3,8 @@
 
 [0033_search_in_rotated_sorted_array](./html/0033_search_in_rotated_sorted_array.html ":include :type=iframe")
 
+<a href="./content/html/0033_search_in_rotated_sorted_array.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def search_rotated_sorted(nums, target):
     left, right = 0, len(nums) - 1

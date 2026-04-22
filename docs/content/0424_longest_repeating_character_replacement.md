@@ -3,6 +3,8 @@
 
 [0424_longest_repeating_character_replacement](./html/0424_longest_repeating_character_replacement.html ':include :type=iframe')
 
+<a href="./content/html/0424_longest_repeating_character_replacement.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def longest_repeating(s, k):
     repeat_map = dict()

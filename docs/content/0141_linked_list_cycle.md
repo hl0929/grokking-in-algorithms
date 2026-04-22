@@ -3,6 +3,8 @@
 
 [0141_linked_list_cycle](./html/0141_linked_list_cycle.html ":include :type=iframe")
 
+<a href="./content/html/0141_linked_list_cycle.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):

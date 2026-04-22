@@ -3,6 +3,8 @@
 
 [0076_minimum_window_substring](./html/0076_minimum_window_substring.html ":include :type=iframe")
 
+<a href="./content/html/0076_minimum_window_substring.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def min_window(s, t):
     if not s or not t:

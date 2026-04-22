@@ -3,6 +3,8 @@
 
 [0054_spiral_matrix](./html/0054_spiral_matrix.html ":include :type=iframe")
 
+<a href="./content/html/0054_spiral_matrix.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def spiral_matrix(matrix):
     if not matrix or not matrix[0]:

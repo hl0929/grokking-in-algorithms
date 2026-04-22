@@ -3,6 +3,8 @@
 
 [0014_longest_common_prefix](./html/0014_longest_common_prefix.html ":include :type=iframe") 
 
+<a href="./content/html/0014_longest_common_prefix.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def longest_common_prefix(strs):
     if not strs:

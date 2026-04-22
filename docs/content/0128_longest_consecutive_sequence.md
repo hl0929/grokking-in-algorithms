@@ -3,6 +3,8 @@
 
 [0128_longest_consecutive_sequence](./html/0128_longest_consecutive_sequence.html ":include :type=iframe")
 
+<a href="./content/html/0128_longest_consecutive_sequence.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def longest_consecutive_sequence(nums):
     num_set = set(nums)

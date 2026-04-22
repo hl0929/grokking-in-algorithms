@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑距离可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        .grid-cell {
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .cell-match {
+            background-color: #f0fdf4;
+            border-color: #22c55e !important;
+            color: #15803d;
+        }
+        .cell-active {
+            transform: scale(1.1);
+            z-index: 20;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+            background-color: #eff6ff;
+        }
+        /* 动作指示箭头 */
+        .op-indicator {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            opacity: 0.6;
+        }
+        .op-replace::after { content: '↖ 替换'; top: -15px; left: -15px; color: #f59e0b; }
+        .op-delete::after { content: '↑ 删除'; top: -15px; left: 10px; color: #ef4444; }
+        .op-insert::after { content: '← 插入'; top: 10px; left: -30px; color: #3b82f6; }
+        .op-match::after { content: '↖ 匹配'; top: -15px; left: -15px; color: #22c55e; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[780px]">
+        
+        <!-- 头部 -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">编辑距离 (Edit Distance)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心：将 word1 转化为 word2 的最小操作步数</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-prev" class="p-2.5 hover:bg-slate-100 rounded-xl transition-all border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2.5 hover:bg-slate-100 rounded-xl transition-all border border-slate-200"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 矩阵显示区 -->
+            <div class="flex-1 p-8 bg-slate-50/50 flex flex-col">
+                <div id="grid-container" class="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 flex items-center justify-center overflow-auto">
+                    <!-- JS 动态生成表格 -->
+                </div>
+
+                <!-- 逻辑描述框 -->
+                <div id="hint-box" class="mt-6 bg-white border border-slate-200 p-5 rounded-2xl text-sm shadow-sm border-l-4 border-l-indigo-500">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span id="logic-title" class="font-bold text-slate-700">正在初始化边界条件...</span>
+                    </div>
+                    <p id="logic-desc" class="text-slate-500 italic">空字符串到任意字符串的距离等于其长度（纯插入或纯删除）。</p>
+                </div>
+            </div>
+
+            <!-- 代码面板 -->
+            <div class="w-[420px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-6 py-4 bg-slate-950 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest">DYNAMIC PROGRAMMING</span>
+                    <span id="step-info" class="text-[10px] text-indigo-400 font-mono">STEP 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-y-auto border-b border-slate-800">
+                    <code id="L_base" class="code-line"># 初始化边界 (空串处理)</code>
+                    <code id="L_init_i" class="code-line">for i in range(m + 1): dp[i][0] = i</code>
+                    <code id="L_init_j" class="code-line">for j in range(n + 1): dp[0][j] = j</code>
+                    <code id="L_loop" class="code-line">for i in range(1, m + 1):</code>
+                    <code id="L_match" class="code-line">    if word1[i-1] == word2[j-1]:</code>
+                    <code id="L_skip" class="code-line">        dp[i][j] = dp[i-1][j-1]</code>
+                    <code id="L_else" class="code-line">    else:</code>
+                    <code id="L_min" class="code-line">        dp[i][j] = min(</code>
+                    <code id="L_del" class="code-line">            dp[i-1][j] + 1,    # 删除</code>
+                    <code id="L_ins" class="code-line">            dp[i][j-1] + 1,    # 插入</code>
+                    <code id="L_rep" class="code-line">            dp[i-1][j-1] + 1   # 替换</code>
+                    <code id="L_min_end" class="code-line">        )</code>
+                </div>
+                <!-- 图例说明 -->
+                <div class="p-6 bg-slate-950 space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <div class="w-3 h-3 bg-green-500 rounded-sm"></div> 匹配 (不计费)
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <div class="w-3 h-3 bg-blue-500 rounded-sm"></div> 插入 (+1)
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <div class="w-3 h-3 bg-red-500 rounded-sm"></div> 删除 (+1)
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <div class="w-3 h-3 bg-amber-500 rounded-sm"></div> 替换 (+1)
+                        </div>
+                    </div>
+                    <div class="text-[11px] text-slate-500 leading-relaxed pt-3 border-t border-slate-800">
+                        <p class="text-white font-bold mb-1">提示：</p>
+                        最终结果 `dp[m][n]` 存储在矩阵右下角，代表两个单词间的最小编辑步数。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const word1 = "HORSE";
+        const word2 = "ROS";
+        const m = word1.length;
+        const n = word2.length;
+        
+        const steps = [];
+        let dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+        // 1. 初始化边界
+        for (let i = 0; i <= m; i++) {
+            dp[i][0] = i;
+            steps.push({ line: 'L_init_i', i, j: 0, val: i, msg: "初始化第一列", desc: `将 "${word1.slice(0, i)}" 变为空串需要删除 ${i} 个字符。` });
+        }
+        for (let j = 1; j <= n; j++) {
+            dp[0][j] = j;
+            steps.push({ line: 'L_init_j', i: 0, j, val: j, msg: "初始化第一行", desc: `空串变为 "${word2.slice(0, j)}" 需要插入 ${j} 个字符。` });
+        }
+
+        // 2. 填充矩阵
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (word1[i-1] === word2[j-1]) {
+                    dp[i][j] = dp[i-1][j-1];
+                    steps.push({
+                        line: 'L_skip', i, j, val: dp[i][j], op: 'match',
+                        msg: `字符匹配: '${word1[i-1]}'`,
+                        desc: `无需操作，距离等于左上角的值: ${dp[i][j]}`
+                    });
+                } else {
+                    const del = dp[i-1][j];
+                    const ins = dp[i][j-1];
+                    const rep = dp[i-1][j-1];
+                    dp[i][j] = Math.min(del, ins, rep) + 1;
+                    
+                    let opType = 'replace';
+                    if (dp[i][j] === del + 1) opType = 'delete';
+                    else if (dp[i][j] === ins + 1) opType = 'insert';
+
+                    steps.push({
+                        line: 'L_min', i, j, val: dp[i][j], op: opType,
+                        msg: `不匹配: '${word1[i-1]}' vs '${word2[j-1]}'`,
+                        desc: `取 [删除, 插入, 替换] 的最小值 + 1 = ${dp[i][j]}`
+                    });
+                }
+            }
+        }
+
+        let currentStep = 0;
+        let timer = null;
+
+        function createGrid() {
+            const container = document.getElementById('grid-container');
+            let html = `<table class="border-collapse"><tr><td></td><td></td>`;
+            for (let char of word2) html += `<td class="w-14 h-14 text-center font-bold text-slate-400">${char}</td>`;
+            html += `</tr>`;
+
+            for (let i = 0; i <= m; i++) {
+                html += `<tr>`;
+                const label = i === 0 ? '∅' : word1[i-1];
+                html += `<td class="w-14 h-14 text-center font-bold text-slate-400">${label}</td>`;
+                for (let j = 0; j <= n; j++) {
+                    html += `<td id="cell-${i}-${j}" class="grid-cell w-14 h-14 border border-slate-200 text-center font-mono text-slate-300"></td>`;
+                }
+                html += `</tr>`;
+            }
+            html += `</table>`;
+            container.innerHTML = html;
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+
+            // 清理旧状态
+            document.querySelectorAll('.grid-cell').forEach(el => {
+                el.classList.remove('cell-active', 'op-match', 'op-replace', 'op-delete', 'op-insert');
+            });
+
+            // 绘制当前及之前的数值
+            for(let k = 0; k <= currentStep; k++) {
+                const s = steps[k];
+                const cell = document.getElementById(`cell-${s.i}-${s.j}`);
+                cell.innerText = s.val;
+                cell.classList.add('text-slate-800');
+                if (s.op === 'match') cell.classList.add('cell-match');
+            }
+
+            // 高亮当前格
+            const currentCell = document.getElementById(`cell-${step.i}-${step.j}`);
+            currentCell.classList.add('cell-active');
+            if (step.op) currentCell.classList.add('op-' + step.op);
+
+            document.getElementById('step-info').innerText = `STEP ${currentStep}`;
+            document.getElementById('logic-title').innerText = step.msg;
+            document.getElementById('logic-desc').innerText = step.desc;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 600);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        createGrid();
+        updateUI();
+    </script>
+</body>
+</html>

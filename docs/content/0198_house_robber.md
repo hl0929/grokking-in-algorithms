@@ -3,6 +3,8 @@
 
 [0198_house_robber](./html/0198_house_robber.html ":include :type=iframe")
 
+<a href="./content/html/0198_house_robber.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def rob(nums):
     if not nums:

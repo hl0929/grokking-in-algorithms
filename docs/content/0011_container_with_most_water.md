@@ -3,6 +3,8 @@
 
 [0011_container_with_most_water](./html/0011_container_with_most_water.html ":include :type=iframe")
 
+<a href="./content/html/0011_container_with_most_water.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def max_area(height):
     area = 0

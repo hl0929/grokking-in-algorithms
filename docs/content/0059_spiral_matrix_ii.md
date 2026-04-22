@@ -3,6 +3,8 @@
 
 [0059_spiral_matrix_ii](./html/0059_spiral_matrix_ii.html ":include :type=iframe")
 
+<a href="./content/html/0059_spiral_matrix_ii.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def generate_spiral_matrix(n):
     matrix = [[0] * n for _ in range(n)]

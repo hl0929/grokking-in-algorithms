@@ -3,6 +3,7 @@
 
 [0053_maximum_subarray](./html/0053_maximum_subarray.html ':include :type=iframe')
 
+<a href="./content/html/0053_maximum_subarray.html" target="_blank">点击此处在新窗口打开</a>
 
 ```python
 def max_subarray(nums):

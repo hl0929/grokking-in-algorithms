@@ -3,6 +3,8 @@
 
 [0070_climbing_stairs](./html/0070_climbing_stairs.html ":include :type=iframe")
 
+<a href="./content/html/0070_climbing_stairs.html" target="_blank">点击此处在新窗口打开</a>
+
 ```python
 def climb_stairs(n):
     if n <= 2:

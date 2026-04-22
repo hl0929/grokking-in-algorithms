@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最小栈算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        .code-container {
+            background-color: #0f172a;
+            color: #94a3b8;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+        }
+        .code-line {
+            display: block;
+            padding: 2px 16px;
+            border-left: 3px solid transparent;
+            white-space: pre;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border-left-color: #38bdf8;
+        }
+        
+        .stack-item {
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .stack-container {
+            min-height: 280px;
+            width: 140px;
+            background: linear-gradient(180deg, rgba(248,250,252,1) 0%, rgba(241,245,249,1) 100%);
+            border: 4px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 1rem 1rem;
+            position: relative;
+            display: flex;
+            flex-direction: column-reverse;
+            padding: 10px;
+            gap: 8px;
+        }
+
+        .stack-label {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: 800;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .sync-line {
+            height: 2px;
+            background: repeating-linear-gradient(90deg, #cbd5e1, #cbd5e1 4px, transparent 4px, transparent 8px);
+            flex-grow: 1;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[820px]">
+        
+        <!-- 头部 -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">最小栈 (Min Stack)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心：双栈同步，辅助栈记录当前最小值</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-rose-500 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-rose-600 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                <button id="btn-reset" class="ml-2 p-2 text-slate-400 hover:text-rose-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 演示区 -->
+            <div class="flex-1 p-8 bg-slate-50/50 flex flex-col items-center">
+                
+                <!-- 栈显示区域 -->
+                <div class="flex items-end gap-12 mt-12 mb-16">
+                    <!-- 数据栈 -->
+                    <div class="relative">
+                        <div class="stack-label">DATA STACK</div>
+                        <div id="data-stack" class="stack-container">
+                            <!-- Items -->
+                        </div>
+                    </div>
+
+                    <!-- 连线指示 -->
+                    <div class="flex flex-col gap-8 mb-4 h-[240px] justify-around">
+                        <div class="sync-line w-16"></div>
+                        <div class="sync-line w-16"></div>
+                        <div class="sync-line w-16"></div>
+                    </div>
+
+                    <!-- 最小栈 -->
+                    <div class="relative">
+                        <div class="stack-label text-rose-500">MIN STACK</div>
+                        <div id="min-stack" class="stack-container border-rose-100 bg-rose-50/30">
+                            <!-- Items -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 交互反馈 -->
+                <div id="hint-box" class="w-full max-w-2xl bg-white border border-slate-200 p-6 rounded-2xl shadow-sm border-l-8 border-l-rose-500 transition-all">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="logic-title" class="font-bold text-slate-800 text-lg">等待操作...</span>
+                        <span id="op-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">IDLE</span>
+                    </div>
+                    <p id="logic-desc" class="text-slate-500 italic">点击“开始演示”查看连续操作流程。</p>
+                </div>
+            </div>
+
+            <!-- 代码面板 -->
+            <div class="w-[420px] code-container flex flex-col border-l border-slate-200">
+                <div class="px-6 py-4 bg-slate-950 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 tracking-widest">CLASS: MINSTACK</span>
+                    <span id="step-info" class="text-[10px] text-rose-400 font-mono">STEP 0</span>
+                </div>
+                <div class="flex-1 py-4 overflow-y-auto">
+                    <div class="mb-4">
+                        <code class="code-line text-slate-500"># push(val) 逻辑</code>
+                        <code id="L_push_data" class="code-line">self.stack.append(val)</code>
+                        <code id="L_calc_min" class="code-line">cur_min = val</code>
+                        <code id="L_if_min" class="code-line">if self.min_stack:</code>
+                        <code id="L_update_min" class="code-line">    cur_min = min(self.min_stack[-1], val)</code>
+                        <code id="L_push_min" class="code-line">self.min_stack.append(cur_min)</code>
+                    </div>
+                    <div class="mb-4 border-t border-slate-800 pt-4">
+                        <code class="code-line text-slate-500"># pop() 逻辑</code>
+                        <code id="L_pop" class="code-line">self.stack.pop()</code>
+                        <code id="L_pop_min" class="code-line">self.min_stack.pop()</code>
+                    </div>
+                    <div class="border-t border-slate-800 pt-4">
+                        <code class="code-line text-slate-500"># getMin() 逻辑</code>
+                        <code id="L_get_min" class="code-line">return self.min_stack[-1]</code>
+                    </div>
+                </div>
+                
+                <div class="p-6 bg-slate-900/50 m-4 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-white text-xs font-bold">当前状态:</h4>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Top Element:</span>
+                            <span id="stat-top" class="text-white font-mono">-</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Current Min:</span>
+                            <span id="stat-min" class="text-rose-400 font-mono">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let timer = null;
+
+        const animationSteps = [
+            { op: 'PUSH', val: -2, line: 'L_push_data', data: [-2], min: [], msg: "压入 -2 到数据栈" },
+            { op: 'PUSH', val: -2, line: 'L_push_min', data: [-2], min: [-2], msg: "最小栈同步压入当前最小值 -2" },
+            { op: 'PUSH', val: 0, line: 'L_push_data', data: [-2, 0], min: [-2], msg: "压入 0 到数据栈" },
+            { op: 'PUSH', val: 0, line: 'L_update_min', data: [-2, 0], min: [-2], msg: "比较 0 和栈顶 -2，最小值仍为 -2" },
+            { op: 'PUSH', val: 0, line: 'L_push_min', data: [-2, 0], min: [-2, -2], msg: "最小栈同步压入最小值 -2" },
+            { op: 'PUSH', val: -3, line: 'L_push_data', data: [-2, 0, -3], min: [-2, -2], msg: "压入 -3 到数据栈" },
+            { op: 'PUSH', val: -3, line: 'L_update_min', data: [-2, 0, -3], min: [-2, -2], msg: "比较 -3 和栈顶 -2，更新最小值为 -3" },
+            { op: 'PUSH', val: -3, line: 'L_push_min', data: [-2, 0, -3], min: [-2, -2, -3], msg: "最小栈同步压入新最小值 -3" },
+            { op: 'GETMIN', val: -3, line: 'L_get_min', data: [-2, 0, -3], min: [-2, -2, -3], msg: "getMin() 直接返回最小栈的栈顶：-3" },
+            { op: 'POP', val: null, line: 'L_pop', data: [-2, 0], min: [-2, -2, -3], msg: "执行 pop()，数据栈弹出 -3" },
+            { op: 'POP', val: null, line: 'L_pop_min', data: [-2, 0], min: [-2, -2], msg: "最小栈同步弹出，新的最小值恢复为 -2" },
+            { op: 'GETMIN', val: -2, line: 'L_get_min', data: [-2, 0], min: [-2, -2], msg: "此时 getMin() 返回最小栈栈顶：-2" }
+        ];
+
+        function updateUI() {
+            const step = animationSteps[currentStep];
+            
+            // 代码高亮
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+
+            // 栈更新
+            const dataStackEl = document.getElementById('data-stack');
+            const minStackEl = document.getElementById('min-stack');
+
+            dataStackEl.innerHTML = step.data.map(v => `
+                <div class="stack-item h-12 w-full bg-slate-700 text-white flex items-center justify-center font-bold rounded-lg shadow-md border-b-4 border-slate-900">
+                    ${v}
+                </div>
+            `).join('');
+
+            minStackEl.innerHTML = step.min.map((v, i) => {
+                const isNew = (i === step.min.length - 1 && step.op === 'PUSH');
+                return `
+                <div class="stack-item h-12 w-full ${isNew ? 'bg-rose-500' : 'bg-rose-400'} text-white flex items-center justify-center font-bold rounded-lg shadow-md border-b-4 border-rose-600">
+                    ${v}
+                </div>
+            `}).join('');
+
+            // 文本信息
+            document.getElementById('logic-title').innerText = step.msg;
+            document.getElementById('op-badge').innerText = step.op;
+            document.getElementById('step-info').innerText = `STEP ${currentStep + 1}`;
+            
+            // 状态面板
+            document.getElementById('stat-top').innerText = step.data.length ? step.data[step.data.length-1] : '-';
+            document.getElementById('stat-min').innerText = step.min.length ? step.min[step.min.length-1] : '-';
+
+            // 样式
+            const badge = document.getElementById('op-badge');
+            const colorMap = { 'PUSH': 'bg-indigo-100 text-indigo-700', 'POP': 'bg-amber-100 text-amber-700', 'GETMIN': 'bg-rose-100 text-rose-700' };
+            badge.className = `px-3 py-1 rounded-full text-xs font-bold ${colorMap[step.op] || 'bg-slate-100 text-slate-600'}`;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentStep >= animationSteps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < animationSteps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1200);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < animationSteps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('btn-reset').onclick = () => {
+            currentStep = 0;
+            if(timer) play();
+            updateUI();
+        };
+
+        // 初始化
+        updateUI();
+    </script>
+</body>
+</html>
