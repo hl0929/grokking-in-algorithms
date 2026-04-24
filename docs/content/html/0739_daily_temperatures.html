@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日温度算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        
+        .stack-item {
+            animation: pushIn 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes pushIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .temp-bar {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .code-line {
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #fbbf24;
+            border-left-color: #fbbf24;
+        }
+        
+        .ans-cell {
+            transition: all 0.3s;
+        }
+        .ans-highlight {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+            color: #b45309;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col h-[800px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-gray-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-gray-800 font-bold text-xl">每日温度 (Daily Temperatures)</h1>
+                    <p class="text-xs text-gray-400 font-medium tracking-wide uppercase">核心：单调栈（Monotonic Stack）- 寻找右侧第一个更大的值</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-gray-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-orange-500 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-orange-600 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-gray-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                <button id="btn-reset" class="ml-2 p-2 text-gray-400 hover:text-orange-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visual Area -->
+            <div class="flex-1 p-8 flex flex-col bg-gray-50/50 space-y-6">
+                
+                <!-- Temperature Chart Area -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-64 flex flex-col">
+                    <div class="text-[10px] font-bold text-gray-400 mb-4 uppercase tracking-widest text-center">温度输入 (Temperatures)</div>
+                    <div id="chart-container" class="flex-1 flex items-end justify-between px-4 gap-2">
+                        <!-- Bars filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Result Array -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-widest text-center">结果数组 (ans)</div>
+                    <div id="ans-container" class="flex justify-center gap-2">
+                        <!-- Cells filled by JS -->
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 flex-1 min-h-0">
+                    <!-- Monotonic Stack -->
+                    <div class="bg-gray-800 rounded-2xl p-5 flex flex-col shadow-inner">
+                        <div class="text-[10px] font-bold text-gray-400 mb-4 uppercase tracking-widest text-center">单调递减栈 (Stack - 存放索引)</div>
+                        <div id="stack-container" class="flex-1 flex flex-col-reverse gap-2 overflow-y-auto pr-2">
+                            <!-- Stack items -->
+                        </div>
+                    </div>
+
+                    <!-- Step Description -->
+                    <div id="step-desc" class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-orange-500 flex flex-col">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span id="step-tag" class="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-black rounded uppercase">INIT</span>
+                            <h3 id="step-title" class="font-bold text-gray-800">系统初始化</h3>
+                        </div>
+                        <p id="step-detail" class="text-gray-500 text-sm leading-relaxed">
+                            准备遍历温度数组。栈将记录那些“还没找到更高温日子”的日期索引。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Area -->
+            <div class="w-[400px] bg-[#0f172a] flex flex-col border-l border-gray-800">
+                <div class="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-gray-500 tracking-widest uppercase">Python Implementation</span>
+                    <div id="step-counter" class="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded">0 / 0</div>
+                </div>
+                <div class="flex-1 py-4 code-font">
+                    <div id="L0" class="code-line">for i in range(n):</div>
+                    <div id="L1" class="code-line ml-4"># 如果当前温 > 栈顶温</div>
+                    <div id="L2" class="code-line ml-4">while stack and T[i] > T[stack[-1]]:</div>
+                    <div id="L3" class="code-line ml-8">j = stack.pop()</div>
+                    <div id="L4" class="code-line ml-8">ans[j] = i - j</div>
+                    <div id="L5" class="code-line ml-4">stack.append(i)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const temps = [73, 74, 75, 71, 69, 72, 76, 73];
+        const steps = [
+            { i: -1, line: "L0", stack: [], ans: [0,0,0,0,0,0,0,0], tag: "INIT", title: "准备开始", detail: "初始化答案数组为0，准备遍历温度列表。" },
+            // i = 0 (73)
+            { i: 0, line: "L2", stack: [], ans: [0,0,0,0,0,0,0,0], tag: "CHECK", title: "i = 0 (73°)", detail: "当前栈为空，无需比较。" },
+            { i: 0, line: "L5", stack: [0], ans: [0,0,0,0,0,0,0,0], tag: "PUSH", title: "入栈 0", detail: "将索引 0 (73°) 入栈，等待未来出现更高温。" },
+            // i = 1 (74)
+            { i: 1, line: "L2", stack: [0], ans: [0,0,0,0,0,0,0,0], tag: "COMPARE", title: "i = 1 (74°)", detail: "74° > 栈顶的 73°，满足条件。" },
+            { i: 1, line: "L3", stack: [], ans: [0,0,0,0,0,0,0,0], popped: 0, tag: "POP", title: "弹出栈顶 0", detail: "由于 74 > 73，索引 0 的更高温找到了。" },
+            { i: 1, line: "L4", stack: [], ans: [1,0,0,0,0,0,0,0], highlight: 0, tag: "ANS", title: "更新答案", detail: "ans[0] = 1 - 0 = 1。即 73° 需等 1 天。" },
+            { i: 1, line: "L5", stack: [1], ans: [1,0,0,0,0,0,0,0], tag: "PUSH", title: "入栈 1", detail: "将索引 1 (74°) 入栈。" },
+            // i = 2 (75)
+            { i: 2, line: "L2", stack: [1], ans: [1,0,0,0,0,0,0,0], tag: "COMPARE", title: "i = 2 (75°)", detail: "75° > 栈顶 74°。" },
+            { i: 2, line: "L3", stack: [], ans: [1,0,0,0,0,0,0,0], popped: 1, tag: "POP", title: "弹出 1", detail: "75° 是 74° 之后第一个更高温。" },
+            { i: 2, line: "L4", stack: [], ans: [1,1,0,0,0,0,0,0], highlight: 1, tag: "ANS", title: "更新答案", detail: "ans[1] = 2 - 1 = 1。" },
+            { i: 2, line: "L5", stack: [2], ans: [1,1,0,0,0,0,0,0], tag: "PUSH", title: "入栈 2", detail: "将索引 2 (75°) 入栈。" },
+            // i = 3 (71)
+            { i: 3, line: "L2", stack: [2], ans: [1,1,0,0,0,0,0,0], tag: "CHECK", title: "i = 3 (71°)", detail: "71° < 75°，不满足 while 条件。" },
+            { i: 3, line: "L5", stack: [2,3], ans: [1,1,0,0,0,0,0,0], tag: "PUSH", title: "入栈 3", detail: "将索引 3 (71°) 入栈。" },
+            // i = 4 (69)
+            { i: 4, line: "L2", stack: [2,3], ans: [1,1,0,0,0,0,0,0], tag: "CHECK", title: "i = 4 (69°)", detail: "69° < 71°，不满足 while 条件。" },
+            { i: 4, line: "L5", stack: [2,3,4], ans: [1,1,0,0,0,0,0,0], tag: "PUSH", title: "入栈 4", detail: "此时栈内索引对应的温度 [75, 71, 69] 保持单调递减。" },
+            // i = 5 (72)
+            { i: 5, line: "L2", stack: [2,3,4], ans: [1,1,0,0,0,0,0,0], tag: "COMPARE", title: "i = 5 (72°)", detail: "72° > 栈顶 69°。" },
+            { i: 5, line: "L3", stack: [2,3], ans: [1,1,0,0,0,0,0,0], popped: 4, tag: "POP", title: "弹出 4", detail: "72° 是 69° 后第一个更高温。" },
+            { i: 5, line: "L4", stack: [2,3], ans: [1,1,0,0,1,0,0,0], highlight: 4, tag: "ANS", title: "更新答案", detail: "ans[4] = 5 - 4 = 1。" },
+            { i: 5, line: "L2", stack: [2,3], ans: [1,1,0,0,1,0,0,0], tag: "COMPARE", title: "继续检查", detail: "72° > 新栈顶 71°。" },
+            { i: 5, line: "L3", stack: [2], ans: [1,1,0,0,1,0,0,0], popped: 3, tag: "POP", title: "弹出 3", detail: "72° 也是 71° 后第一个更高温。" },
+            { i: 5, line: "L4", stack: [2], ans: [1,1,0,1,1,0,0,0], highlight: 3, tag: "ANS", title: "更新答案", detail: "ans[3] = 5 - 3 = 2。" },
+            { i: 5, line: "L5", stack: [2,5], ans: [1,1,0,1,1,0,0,0], tag: "PUSH", title: "入栈 5", detail: "将索引 5 (72°) 入栈。注意：之前的 75° 仍未被超越。" },
+            // i = 6 (76)
+            { i: 6, line: "L2", stack: [2,5], ans: [1,1,0,1,1,0,0,0], tag: "COMPARE", title: "i = 6 (76°)", detail: "76° > 72°。" },
+            { i: 6, line: "L3", stack: [2], ans: [1,1,0,1,1,0,0,0], popped: 5, tag: "POP", title: "弹出 5", detail: "76° 终结了 72° 的等待。" },
+            { i: 6, line: "L4", stack: [2], ans: [1,1,0,1,1,1,0,0], highlight: 5, tag: "ANS", title: "更新答案", detail: "ans[5] = 6 - 5 = 1。" },
+            { i: 6, line: "L2", stack: [2], ans: [1,1,0,1,1,1,0,0], tag: "COMPARE", title: "继续检查", detail: "76° > 75° (栈中潜伏已久)。" },
+            { i: 6, line: "L3", stack: [], ans: [1,1,0,1,1,1,0,0], popped: 2, tag: "POP", title: "弹出 2", detail: "76° 终结了 75° 的漫长等待。" },
+            { i: 6, line: "L4", stack: [], ans: [1,1,4,1,1,1,0,0], highlight: 2, tag: "ANS", title: "更新答案", detail: "ans[2] = 6 - 2 = 4。" },
+            { i: 6, line: "L5", stack: [6], ans: [1,1,4,1,1,1,0,0], tag: "PUSH", title: "入栈 6", detail: "目前最高温 76° 入栈。" },
+            // i = 7 (73)
+            { i: 7, line: "L2", stack: [6], ans: [1,1,4,1,1,1,0,0], tag: "CHECK", title: "i = 7 (73°)", detail: "73° < 76°。" },
+            { i: 7, line: "L5", stack: [6,7], ans: [1,1,4,1,1,1,0,0], tag: "PUSH", title: "入栈 7", detail: "最后一项入栈。" },
+            // End
+            { i: 8, line: "", stack: [6,7], ans: [1,1,4,2,1,1,0,0], tag: "DONE", title: "遍历结束", detail: "遍历完成。栈中剩余的索引 6, 7 对应的 ans 默认为 0，表示之后没有更高温。" }
+        ];
+
+        let currentStep = 0;
+        let timer = null;
+
+        function initUI() {
+            // Chart
+            const chart = document.getElementById('chart-container');
+            chart.innerHTML = temps.map((t, i) => `
+                <div class="flex flex-col items-center flex-1">
+                    <span id="label-${i}" class="text-[10px] text-gray-400 mb-1 font-bold">${t}</span>
+                    <div id="bar-${i}" class="temp-bar w-full bg-orange-200 rounded-t-md" style="height: ${t*2 - 120}px"></div>
+                    <span class="text-[10px] text-gray-300 mt-1">idx ${i}</span>
+                </div>
+            `).join('');
+
+            // Ans
+            const ansCont = document.getElementById('ans-container');
+            ansCont.innerHTML = temps.map((_, i) => `
+                <div id="ans-cell-${i}" class="ans-cell w-10 h-10 border-2 border-gray-100 rounded-lg flex items-center justify-center font-mono font-bold text-gray-400">0</div>
+            `).join('');
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+
+            // Update Chart Highlights
+            document.querySelectorAll('.temp-bar').forEach((el, idx) => {
+                const label = document.getElementById(`label-${idx}`);
+                if (idx === step.i) {
+                    el.className = "temp-bar w-full bg-orange-500 rounded-t-md shadow-lg";
+                    label.className = "text-[10px] text-orange-600 mb-1 font-black";
+                } else if (step.stack.includes(idx)) {
+                    el.className = "temp-bar w-full bg-blue-400 rounded-t-md opacity-80";
+                    label.className = "text-[10px] text-blue-600 mb-1 font-bold";
+                } else {
+                    el.className = "temp-bar w-full bg-gray-200 rounded-t-md";
+                    label.className = "text-[10px] text-gray-400 mb-1 font-bold";
+                }
+            });
+
+            // Update Ans Array
+            step.ans.forEach((val, idx) => {
+                const cell = document.getElementById(`ans-cell-${idx}`);
+                cell.innerText = val;
+                if (idx === step.highlight) {
+                    cell.className = "ans-cell w-10 h-10 border-2 rounded-lg flex items-center justify-center font-mono font-bold ans-highlight";
+                } else {
+                    cell.className = "ans-cell w-10 h-10 border-2 border-gray-100 rounded-lg flex items-center justify-center font-mono font-bold " + (val > 0 ? "text-gray-800 bg-white" : "text-gray-300");
+                }
+            });
+
+            // Update Stack
+            const stackContainer = document.getElementById('stack-container');
+            if (step.stack.length === 0) {
+                stackContainer.innerHTML = '<div class="text-gray-600 text-[10px] text-center mt-10 uppercase font-bold">Empty Stack</div>';
+            } else {
+                stackContainer.innerHTML = step.stack.map(idx => `
+                    <div class="stack-item bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 flex justify-between items-center ${idx === step.popped ? 'opacity-50 blur-sm' : ''}">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] text-gray-400 uppercase font-bold">Index ${idx}</span>
+                            <span class="text-sm font-bold text-white">${temps[idx]}°C</span>
+                        </div>
+                        <div class="w-6 h-6 bg-gray-800 rounded flex items-center justify-center text-[10px] text-blue-400 font-bold border border-gray-500">
+                            ${idx}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update Code
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+
+            // Update Text
+            document.getElementById('step-tag').innerText = step.tag;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 800);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('btn-reset').onclick = () => {
+            currentStep = 0;
+            if(timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "开始演示"; }
+            updateUI();
+        };
+
+        initUI();
+    </script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最大矩形面积可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .cell {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .cell-1 { background-color: #f1f5f9; color: #94a3b8; }
+        .cell-active { background-color: #e2e8f0; border-color: #94a3b8; }
+        .cell-height { background-color: #8b5cf6; color: white; transform: scale(0.95); border-radius: 4px; }
+
+        .bar {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .active-rect {
+            position: absolute;
+            background-color: rgba(139, 92, 246, 0.4);
+            border: 2px dashed #8b5cf6;
+            transition: all 0.4s;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        .code-line {
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #a78bfa;
+            border-left-color: #a78bfa;
+        }
+
+        .stack-item {
+            animation: slideIn 0.2s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[850px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">最大矩形面积 (Maximal Rectangle)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">动态规划 + 单调栈：将每一行视作直方图的基底</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Main Content Area -->
+            <div class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto bg-slate-50/30">
+                
+                <!-- Matrix Section -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-slate-300 rounded-full"></span> 原始矩阵 (Matrix)
+                    </h2>
+                    <div id="matrix-container" class="grid grid-cols-5 gap-2 max-w-md mx-auto">
+                        <!-- Matrix cells injected here -->
+                    </div>
+                </div>
+
+                <!-- Histogram Visualization -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> 当前行高度转换 (Histogram)
+                    </h2>
+                    <div id="chart-container" class="flex-1 relative flex items-end justify-center px-10 pb-8 pt-10 border-t border-slate-50">
+                        <div id="active-rect-overlay" class="active-rect opacity-0 rounded-lg"></div>
+                        <div id="bars-wrapper" class="flex items-end gap-3 h-full w-full justify-center">
+                            <!-- Bars injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-indigo-600 p-4 rounded-xl shadow-lg text-white col-span-2">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="step-tag" class="px-1.5 py-0.5 bg-white/20 text-[9px] font-black rounded uppercase tracking-tighter">STATE</span>
+                            <h3 id="step-title" class="font-bold text-sm truncate">准备开始</h3>
+                        </div>
+                        <p id="step-detail" class="text-indigo-100 text-xs leading-relaxed">我们将逐行处理矩阵，将每一行向上延伸的连续 '1' 累加为高度。</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Global Max Area</div>
+                        <div id="val-max" class="text-3xl font-black text-indigo-600 leading-none mt-1">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="w-[340px] bg-slate-900 flex flex-col border-l border-slate-800">
+                <!-- Stack Section -->
+                <div class="p-5 border-b border-slate-800">
+                    <div class="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-widest">单调栈 (Stack)</div>
+                    <div id="stack-view" class="flex flex-wrap gap-2 min-h-[80px] items-start content-start">
+                        <!-- Stack items -->
+                    </div>
+                </div>
+
+                <!-- Code Section -->
+                <div class="flex-1 py-4 code-font overflow-y-auto">
+                    <div class="px-4 mb-2 text-[10px] text-slate-600 uppercase font-bold">Algorithm Logic</div>
+                    <div id="L1" class="code-line">for row in matrix:</div>
+                    <div id="L2" class="code-line ml-3">for j in range(cols):</div>
+                    <div id="L3" class="code-line ml-6">heights[j] = heights[j] + 1 if row[j] == "1" else 0</div>
+                    <div id="L4" class="code-line ml-3 text-indigo-400 font-medium"># Solve Largest Rectangle in Line:</div>
+                    <div id="L5" class="code-line ml-3">while stack and h < h[stack[-1]]:</div>
+                    <div id="L6" class="code-line ml-6">H = h[stack.pop()]</div>
+                    <div id="L7" class="code-line ml-6">W = i - stack[-1] - 1</div>
+                    <div id="L8" class="code-line ml-6 font-bold text-white bg-indigo-500/20">max_area = max(max_area, H * W)</div>
+                    <div id="L9" class="code-line ml-3">stack.append(i)</div>
+                </div>
+
+                <div class="px-5 py-4 bg-slate-950 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span>STEP <span id="step-counter">0 / 0</span></span>
+                    <span class="text-indigo-400">GEMINI VIZ</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const matrix = [
+            ["1","0","1","0","0"],
+            ["1","0","1","1","1"],
+            ["1","1","1","1","1"],
+            ["1","0","0","1","0"]
+        ];
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+
+        // Step Generator
+        function generateSteps() {
+            const steps = [];
+            let currentHeights = Array(cols).fill(0);
+            let globalMax = 0;
+
+            steps.push({
+                type: 'START',
+                matrixRow: -1,
+                heights: [...currentHeights],
+                max: 0,
+                line: 'L1',
+                title: "初始化",
+                detail: "准备逐行扫描矩阵。每一行将被视为一个直方图的基底。"
+            });
+
+            for (let r = 0; r < rows; r++) {
+                // Update heights
+                for (let c = 0; c < cols; c++) {
+                    if (matrix[r][c] === "1") currentHeights[c]++;
+                    else currentHeights[c] = 0;
+                }
+
+                steps.push({
+                    type: 'ROW_UPDATE',
+                    matrixRow: r,
+                    heights: [...currentHeights],
+                    max: globalMax,
+                    line: 'L3',
+                    title: `处理第 ${r + 1} 行`,
+                    detail: `根据当前行更新高度数组：${JSON.stringify(currentHeights)}`
+                });
+
+                // Largest Rectangle in Histogram for this row
+                const h = [0, ...currentHeights, 0];
+                const stack = [];
+                
+                for (let i = 0; i < h.length; i++) {
+                    while (stack.length > 0 && h[i] < h[stack[stack.length - 1]]) {
+                        const midIdx = stack.pop();
+                        const height = h[midIdx];
+                        const leftIdx = stack[stack.length - 1];
+                        const width = i - leftIdx - 1;
+                        const area = height * width;
+                        const isNewMax = area > globalMax;
+                        globalMax = Math.max(globalMax, area);
+
+                        if (height > 0) { // 只记录有意义的计算步骤
+                            steps.push({
+                                type: 'CALC',
+                                matrixRow: r,
+                                heights: [...currentHeights],
+                                stack: [...stack],
+                                max: globalMax,
+                                mid: midIdx - 1, // 修正回原索引
+                                left: leftIdx - 1,
+                                right: i - 1,
+                                currH: height,
+                                currW: width,
+                                currA: area,
+                                line: 'L8',
+                                title: `行 ${r+1}: 发现矩形 ${area}`,
+                                detail: `高度为 ${height} (索引${midIdx-1})，左右边界间距为 ${width}。`
+                            });
+                        }
+                    }
+                    stack.push(i);
+                }
+            }
+
+            steps.push({
+                type: 'END',
+                matrixRow: -1,
+                heights: currentHeights,
+                max: globalMax,
+                line: 'L1',
+                title: "完成",
+                detail: `整个矩阵处理完毕，最大矩形面积为 ${globalMax}。`
+            });
+
+            return steps;
+        }
+
+        const steps = generateSteps();
+        let currentStep = 0;
+        let timer = null;
+
+        function initUI() {
+            // Init Matrix
+            const mContainer = document.getElementById('matrix-container');
+            mContainer.innerHTML = matrix.flatMap((row, r) => 
+                row.map((cell, c) => `<div id="m-${r}-${c}" class="w-full aspect-square border border-slate-100 flex items-center justify-center text-sm font-bold cell ${cell === "1" ? "cell-1" : "bg-white text-slate-200 opacity-30"}">${cell}</div>`)
+            ).join('');
+
+            // Init Bars
+            const bWrapper = document.getElementById('bars-wrapper');
+            bWrapper.innerHTML = Array(cols).fill(0).map((_, i) => `
+                <div id="bar-${i}" class="bar bg-slate-200 w-12 rounded-t-lg flex items-start justify-center pt-2" style="height: 0%">
+                    <span class="text-[10px] font-bold text-slate-400">0</span>
+                </div>
+            `).join('');
+
+            updateUI();
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+            
+            // Update Matrix Highlight
+            document.querySelectorAll('.cell').forEach(el => el.classList.remove('cell-active', 'cell-height'));
+            if (step.matrixRow !== -1) {
+                // Highlight current row
+                for(let c=0; c<cols; c++) {
+                    const el = document.getElementById(`m-${step.matrixRow}-${c}`);
+                    el.classList.add('cell-active');
+                    // Highlight column stack
+                    if (matrix[step.matrixRow][c] === "1") {
+                        for(let r=step.matrixRow; r >= 0 && matrix[r][c] === "1"; r--) {
+                            document.getElementById(`m-${r}-${c}`).classList.add('cell-height');
+                        }
+                    }
+                }
+            }
+
+            // Update Bars
+            step.heights.forEach((val, i) => {
+                const bar = document.getElementById(`bar-${i}`);
+                bar.style.height = `${val * 15}%`; // Scale for visibility
+                bar.querySelector('span').innerText = val;
+                bar.classList.remove('bg-indigo-500', 'bg-slate-800', 'bg-rose-400');
+                
+                if (step.type === 'CALC') {
+                    if (i === step.mid) bar.classList.add('bg-indigo-500');
+                    else if (i > step.left && i < step.right) bar.classList.add('bg-indigo-100');
+                    else bar.classList.add('bg-slate-200');
+                } else {
+                    bar.classList.add(val > 0 ? 'bg-slate-400' : 'bg-slate-100');
+                }
+            });
+
+            // Update Overlay Rect
+            const overlay = document.getElementById('active-rect-overlay');
+            if (step.type === 'CALC') {
+                const barEl = document.getElementById('bar-0');
+                const barTotalW = barEl.offsetWidth + 12; // width + gap
+                const containerW = document.getElementById('bars-wrapper').offsetWidth;
+                const offsetL = (containerW - (cols * barTotalW - 12)) / 2;
+                
+                const x = offsetL + (step.left + 1) * barTotalW;
+                const w = step.currW * barTotalW - 12;
+                const h = step.currH * 15;
+
+                overlay.style.opacity = "1";
+                overlay.style.left = `${x}px`;
+                overlay.style.width = `${w}px`;
+                overlay.style.height = `${h}%`;
+                overlay.style.bottom = "32px"; // Match chart padding
+                overlay.innerHTML = `<span class="bg-indigo-600 px-2 py-1 rounded shadow-lg text-xs">Area: ${step.currA}</span>`;
+            } else {
+                overlay.style.opacity = "0";
+            }
+
+            // Text & Stats
+            document.getElementById('val-max').innerText = step.max;
+            document.getElementById('step-tag').innerText = step.type;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+
+            // Stack View
+            const sView = document.getElementById('stack-view');
+            sView.innerHTML = (step.stack || []).map(idx => `
+                <div class="stack-item bg-slate-800 text-indigo-300 px-2 py-1 rounded border border-slate-700 text-[10px] font-bold">
+                    idx:${idx-1} <span class="text-slate-500">(h:${step.heights[idx-1]})</span>
+                </div>
+            `).join('');
+
+            // Code Line
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1200);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        window.onload = initUI;
+    </script>
+</body>
+</html>

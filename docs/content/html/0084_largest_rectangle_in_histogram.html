@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最大矩形面积可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .bar {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .active-rect {
+            position: absolute;
+            background-color: rgba(139, 92, 246, 0.4);
+            border: 2px dashed #8b5cf6;
+            transition: all 0.4s;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .stack-item {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .code-line {
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #a78bfa;
+            border-left-color: #a78bfa;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[820px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">柱状图中最大的矩形 (Largest Rectangle)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">核心：单调递增栈维护“左右边界”</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md transition-all">开始演示</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visual Area -->
+            <div class="flex-1 p-8 flex flex-col bg-slate-50/50 relative">
+                
+                <!-- Chart Area -->
+                <div id="chart-container" class="flex-1 bg-white rounded-2xl border border-slate-200 shadow-inner relative flex items-end justify-center px-10 pb-12 pt-20">
+                    <div id="active-rect-overlay" class="active-rect opacity-0"></div>
+                    <div id="bars-wrapper" class="flex items-end gap-1 h-full w-full justify-center">
+                        <!-- Bars injected here -->
+                    </div>
+                </div>
+
+                <!-- Info Cards -->
+                <div class="grid grid-cols-3 gap-6 mt-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] font-bold text-slate-400 mb-1 uppercase">max_area</div>
+                        <div id="val-max" class="text-3xl font-black text-indigo-600">0</div>
+                    </div>
+                    <div class="col-span-2 bg-indigo-600 p-5 rounded-2xl shadow-lg text-white flex flex-col justify-center">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="step-tag" class="px-1.5 py-0.5 bg-white/20 text-[10px] font-black rounded uppercase">INIT</span>
+                            <h3 id="step-title" class="font-bold text-sm">准备开始</h3>
+                        </div>
+                        <p id="step-detail" class="text-indigo-100 text-xs">我们在原数组前后添加 0 作为哨兵，简化边界处理。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Sidebar: Stack and Code -->
+            <div class="w-[380px] bg-slate-900 flex flex-col border-l border-slate-800">
+                <!-- Stack View -->
+                <div class="p-6 border-b border-slate-800">
+                    <div class="text-[10px] font-bold text-slate-500 mb-4 uppercase tracking-widest">单调栈 (Monotonic Stack)</div>
+                    <div id="stack-view" class="flex flex-wrap gap-2 min-h-[100px] items-start content-start">
+                        <!-- Stack items injected here -->
+                    </div>
+                </div>
+                
+                <!-- Code View -->
+                <div class="flex-1 py-4 code-font overflow-y-auto">
+                    <div id="L0" class="code-line">heights = [0] + heights + [0]</div>
+                    <div id="L1" class="code-line">for i, h in enumerate(heights):</div>
+                    <div id="L2" class="code-line ml-4">while stack and h < heights[stack[-1]]:</div>
+                    <div id="L3" class="code-line ml-8 text-indigo-400 font-bold">height = heights[stack.pop()]</div>
+                    <div id="L4" class="code-line ml-8">width = i - stack[-1] - 1</div>
+                    <div id="L5" class="code-line ml-8">max_area = max(max_area, height * width)</div>
+                    <div id="L6" class="code-line ml-4">stack.append(i)</div>
+                </div>
+                
+                <div class="px-6 py-4 bg-slate-950 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span>STEP EXECUTION</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rawHeights = [2, 1, 5, 6, 2, 3];
+        const h = [0, ...rawHeights, 0];
+        
+        // Pre-calculate steps
+        function generateSteps() {
+            const steps = [];
+            const stack = [];
+            let maxArea = 0;
+            
+            steps.push({ 
+                type: 'init', stack: [], max: 0, i: -1, 
+                title: "初始化", detail: "添加首尾哨兵柱子(高度0)，确保所有柱子都能正确弹出。", line: 'L0' 
+            });
+
+            for (let i = 0; i < h.length; i++) {
+                while (stack.length > 0 && h[i] < h[stack[stack.length - 1]]) {
+                    const midIdx = stack.pop();
+                    const height = h[midIdx];
+                    const leftIdx = stack[stack.length - 1];
+                    const width = i - leftIdx - 1;
+                    const area = height * width;
+                    maxArea = Math.max(maxArea, area);
+                    
+                    steps.push({
+                        type: 'pop', stack: [...stack], max: maxArea, i, 
+                        mid: midIdx, left: leftIdx, right: i,
+                        currHeight: height, currWidth: width, currArea: area,
+                        title: `计算高度为 ${height} 的矩形`, 
+                        detail: `遇到高度 ${h[i]} < ${height}。左边界是索引 ${leftIdx}，右边界是 ${i}，宽度为 ${width}。`,
+                        line: 'L5'
+                    });
+                }
+                stack.push(i);
+                steps.push({ 
+                    type: 'push', stack: [...stack], max: maxArea, i, 
+                    title: `柱子 ${i} 入栈`, 
+                    detail: `高度 ${h[i]} 满足单调递增，直接记录索引。`, 
+                    line: 'L6' 
+                });
+            }
+            return steps;
+        }
+
+        const steps = generateSteps();
+        let currentStep = 0;
+        let timer = null;
+
+        function initUI() {
+            const wrapper = document.getElementById('bars-wrapper');
+            wrapper.innerHTML = h.map((val, idx) => `
+                <div id="bar-${idx}" class="bar bg-slate-200 w-10 rounded-t-md" style="height: ${val * 12}%;">
+                    <div class="bar-label">h:${val}<br><span class="opacity-50">i:${idx}</span></div>
+                </div>
+            `).join('');
+            updateUI();
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+            const overlay = document.getElementById('active-rect-overlay');
+
+            // Reset bars
+            document.querySelectorAll('.bar').forEach((bar, idx) => {
+                bar.classList.remove('bg-indigo-500', 'bg-slate-800', 'bg-rose-400', 'bg-amber-400');
+                if (idx === step.i) {
+                    bar.classList.add('bg-amber-400'); // Current scanning
+                } else if (step.stack.includes(idx)) {
+                    bar.classList.add('bg-slate-800'); // In stack
+                } else {
+                    bar.classList.add('bg-slate-200');
+                }
+            });
+
+            // Handle Area Overlay
+            if (step.type === 'pop') {
+                const barWidth = 40; // w-10 = 2.5rem = 40px
+                const gap = 4; // gap-1 = 0.25rem = 4px
+                const startX = (step.left + 1) * (barWidth + gap);
+                const width = step.currWidth * (barWidth + gap) - gap;
+                
+                overlay.style.opacity = "1";
+                overlay.style.left = `calc(50% - ${(h.length * (barWidth+gap))/2}px + ${startX}px)`;
+                overlay.style.width = `${width}px`;
+                overlay.style.height = `${step.currHeight * 12}%`;
+                overlay.style.bottom = "48px";
+                overlay.innerHTML = `<div>${step.currArea}</div>`;
+                
+                // Highlight boundaries
+                document.getElementById(`bar-${step.mid}`).classList.add('bg-indigo-500');
+            } else {
+                overlay.style.opacity = "0";
+            }
+
+            // Info update
+            document.getElementById('val-max').innerText = step.max;
+            document.getElementById('step-tag').innerText = step.type;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+
+            // Stack view
+            const stackView = document.getElementById('stack-view');
+            stackView.innerHTML = step.stack.map(idx => `
+                <div class="stack-item bg-slate-800 border border-slate-700 text-indigo-400 px-3 py-1 rounded text-xs font-bold">
+                    ${idx}<span class="text-slate-600 text-[10px] ml-1">(h:${h[idx]})</span>
+                </div>
+            `).join('');
+
+            // Code Line
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续演示";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        play();
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        document.getElementById('btn-play').onclick = play;
+
+        initUI();
+    </script>
+</body>
+</html>

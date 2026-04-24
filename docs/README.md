@@ -25,6 +25,8 @@
 
 [0026. 删除有序数组中的重复项](./content/0026_remove_duplicates_from_sorted_array.md)
 
+[0032. 最长有效括号](./content/0032_longest_valid_parentheses.md)
+
 [0033. 搜索旋转排序数组](./content/0033_search_in_rotated_sorted_array.md)
 
 [0034. 在排序数组中查找元素的第一个和最后一个位置](./content/0034_find_first_and_last_position_of_element_in_sorted_array.md)
@@ -48,6 +50,10 @@
 [0075. 颜色分类](./content/0075_sort_colors.md)
 
 [0076. 最小覆盖子串](./content/0076_minimum_window_substring.md)
+
+[0084. 柱状图中的最大矩形](./content/0084_largest_rectangle_in_histogram.md)
+
+[0085. 最大矩形](./content/0085_maximal_rectangle.md)
 
 [0121. 买卖股票的最佳时机](./content/0121_best_time_to_buy_and_sell_stock.md)
 
@@ -79,9 +85,9 @@
 
 [0242. 有效的字母异位词](./content/0242_valid_anagram.md)
 
-[0287. 寻找重复数](./content/0287_find_the_duplicate_number.md)
-
 [0283. 移动零](./content/0283_move_zeroes.md)
+
+[0287. 寻找重复数](./content/0287_find_the_duplicate_number.md)
 
 [0322. 零钱兑换](./content/0322_coin_change.md)
 
@@ -100,6 +106,8 @@
 [0560. 和为 K 的子数组](./content/0560_subarray_sum_equals_k.md)
 
 [0567. 字符串的排列](./content/0567_permutation_in_string.md)
+
+[0739. 每日温度](./content/0739_daily_temperatures.md)
 
 [0876. 链表的中间结点](./content/0876_middle_of_the_linked_list.md)
 
