@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重排链表可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .node-circle {
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: absolute;
+            z-index: 20;
+        }
+        
+        .arrow-path {
+            transition: all 0.6s ease;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 0;
+        }
+
+        .highlight-slow { border-color: #ef4444; background-color: #fee2e2; }
+        .highlight-fast { border-color: #3b82f6; background-color: #dbeafe; }
+        .highlight-merge { border-color: #10b981; background-color: #d1fae5; }
+
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .phase-badge {
+            transition: all 0.3s ease;
+        }
+        .phase-active {
+            background-color: #3b82f6;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .test-case-btn {
+            transition: all 0.2s;
+        }
+        .test-case-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">重排链表可视化</h1>
+                    <div class="hidden sm:flex gap-2 mt-1">
+                        <span id="badge-1" class="phase-badge text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold uppercase">1. 中点</span>
+                        <span id="badge-2" class="phase-badge text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold uppercase">2. 反转</span>
+                        <span id="badge-3" class="phase-badge text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold uppercase">3. 合并</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Test Cases -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                <button onclick="setTestCase([1,2,3,4,5,6], this)" class="test-case-btn active px-3 py-1 text-[10px] font-bold rounded-md border border-transparent bg-white text-slate-600 hover:bg-slate-50">Case 1 (n=6)</button>
+                <button onclick="setTestCase([1,2,3,4,5], this)" class="test-case-btn px-3 py-1 text-[10px] font-bold rounded-md border border-transparent bg-white text-slate-600 hover:bg-slate-50">Case 2 (n=5)</button>
+                <button onclick="setTestCase([1,2,3], this)" class="test-case-btn px-3 py-1 text-[10px] font-bold rounded-md border border-transparent bg-white text-slate-600 hover:bg-slate-50">Case 3 (n=3)</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-all">播放</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Visual Area -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 relative overflow-hidden">
+                
+                <!-- Linked List Canvas -->
+                <div id="canvas-container" class="relative flex-1 bg-white m-4 rounded-xl border border-slate-200 shadow-inner overflow-hidden">
+                    <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+                            </marker>
+                            <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="#3b82f6" />
+                            </marker>
+                            <marker id="arrowhead-reverse" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
+                            </marker>
+                        </defs>
+                        <g id="links-group"></g>
+                    </svg>
+                    <div id="nodes-group" class="absolute inset-0"></div>
+                    
+                    <!-- Pointer Labels -->
+                    <div id="pointer-slow" class="absolute transition-all duration-500 opacity-0 flex flex-col items-center pointer-events-none z-30">
+                        <div class="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">slow</div>
+                        <div class="w-0.5 h-3 bg-red-500"></div>
+                    </div>
+                    <div id="pointer-fast" class="absolute transition-all duration-500 opacity-0 flex flex-col items-center pointer-events-none z-30">
+                        <div class="w-0.5 h-3 bg-blue-500"></div>
+                        <div class="bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">fast</div>
+                    </div>
+                </div>
+
+                <!-- Explanation Box (Bottom) -->
+                <div id="explanation-box" class="mx-4 mb-4 bg-slate-900 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-blue-500 shadow-xl z-10">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-black rounded uppercase">INIT</span>
+                        <span id="step-title" class="font-bold text-white">就绪</span>
+                    </div>
+                    <p id="step-detail">等待开始演示...</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code View (Right) -->
+            <div id="sidebar" class="w-64 sm:w-80 bg-slate-900 flex flex-col border-l border-slate-800 transition-all duration-300 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Python 实现</span>
+                    <span class="text-[9px] text-slate-600">O(n) Time / O(1) Space</span>
+                </div>
+                
+                <div class="flex-1 py-2 code-font overflow-y-auto no-scrollbar">
+                    <div id="L0" class="code-line"># 1. 找中点</div>
+                    <div id="L1" class="code-line">slow, fast = head, head</div>
+                    <div id="L2" class="code-line">while fast.next and fast.next.next:</div>
+                    <div id="L3" class="code-line ml-4">slow = slow.next</div>
+                    <div id="L3b" class="code-line ml-4">fast = fast.next.next</div>
+                    <div id="L4" class="code-line mt-2 text-slate-600"># 2. 反转后半部</div>
+                    <div id="L5" class="code-line">prev, curr = None, slow.next</div>
+                    <div id="L6" class="code-line">slow.next = None</div>
+                    <div id="L7" class="code-line">while curr:</div>
+                    <div id="L8" class="code-line ml-4">nxt = curr.next</div>
+                    <div id="L9" class="code-line ml-4">curr.next = prev</div>
+                    <div id="L10" class="code-line ml-4">prev, curr = curr, nxt</div>
+                    <div id="L11" class="code-line mt-2 text-slate-600"># 3. 交替合并</div>
+                    <div id="L12" class="code-line">first, second = head, prev</div>
+                    <div id="L13" class="code-line">while second:</div>
+                    <div id="L14" class="code-line ml-4">t1, t2 = first.next, second.next</div>
+                    <div id="L15" class="code-line ml-4 font-bold text-emerald-400">first.next = second</div>
+                    <div id="L16" class="code-line ml-4 font-bold text-emerald-400">second.next = t1</div>
+                    <div id="L17" class="code-line ml-4">first, second = t1, t2</div>
+                </div>
+                
+                <div class="px-4 py-3 bg-black/30 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="current-phase">PHASE: 0</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nodeValues = [1, 2, 3, 4, 5, 6];
+        let nodes = [];
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function initNodes(values) {
+            nodeValues = values;
+            nodes = nodeValues.map((v, i) => ({ id: i, val: v }));
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            render();
+        }
+
+        function setTestCase(values, btn) {
+            document.querySelectorAll('.test-case-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            initNodes(values);
+        }
+
+        function generateSteps() {
+            const steps = [];
+            const n = nodes.length;
+            let currentLinks = nodes.slice(0, -1).map((n, i) => ({ from: i, to: i+1 }));
+
+            // Phase 1
+            let slow = 0, fast = 0;
+            steps.push({ phase: 1, line: 'L1', slow, fast, links: [...currentLinks], title: "初始化", detail: "快慢指针均指向头节点。" });
+
+            while (fast + 1 < n && fast + 2 < n) {
+                slow += 1;
+                steps.push({ phase: 1, line: 'L3', slow, fast, links: [...currentLinks], title: "慢指针移动", detail: "slow 走一步。" });
+                fast += 2;
+                steps.push({ phase: 1, line: 'L3b', slow, fast, links: [...currentLinks], title: "快指针移动", detail: "fast 走两步。当 fast 到达末尾，slow 处于前半部分末尾。" });
+            }
+
+            // Phase 2
+            steps.push({ phase: 2, line: 'L5', slow, curr: slow + 1, prev: null, links: [...currentLinks], title: "准备反转", detail: "识别后半部分起点 (slow.next)。" });
+            
+            currentLinks = currentLinks.filter(l => l.from !== slow);
+            steps.push({ phase: 2, line: 'L6', slow, curr: slow + 1, prev: null, links: [...currentLinks], title: "断开连接", detail: "将前半部分末尾指向 None，分割链表。" });
+
+            let p = null, c = slow + 1;
+            while (c !== null && c < n) {
+                let nxt = (c + 1 < n) ? c + 1 : null;
+                currentLinks = currentLinks.filter(l => l.from !== c);
+                if (p !== null) currentLinks.push({ from: c, to: p, color: '#f59e0b' });
+                
+                steps.push({ phase: 2, line: 'L9', slow, curr: c, prev: p, links: [...currentLinks], title: "修改指针", detail: `节点 ${nodes[c].val} 指向其前驱节点。` });
+                p = c;
+                c = nxt;
+                steps.push({ phase: 2, line: 'L10', slow, curr: c, prev: p, links: [...currentLinks], title: "指针后移", detail: "继续处理下一个节点。" });
+            }
+
+            // Phase 3
+            let f = 0, s = n - 1;
+            steps.push({ phase: 3, line: 'L12', first: f, second: s, links: [...currentLinks], title: "开始合并", detail: "此时拥有两个链表，开始交叉连接。" });
+
+            while (s !== null && s > slow) {
+                let nextF = currentLinks.find(l => l.from === f)?.to;
+                let nextS = currentLinks.find(l => l.from === s)?.to;
+                if (nextF === undefined) nextF = null;
+                if (nextS === undefined) nextS = null;
+
+                // first.next = second
+                currentLinks = currentLinks.filter(l => l.from !== f);
+                currentLinks.push({ from: f, to: s, color: '#10b981' });
+                steps.push({ phase: 3, line: 'L15', first: f, second: s, links: [...currentLinks], title: "交叉合并 (1)", detail: `左侧 ${nodes[f].val} 指向右侧 ${nodes[s].val}。` });
+
+                // second.next = nextF
+                if (nextF !== null) {
+                    currentLinks = currentLinks.filter(l => l.from !== s);
+                    currentLinks.push({ from: s, to: nextF, color: '#10b981' });
+                    steps.push({ phase: 3, line: 'L16', first: f, second: s, links: [...currentLinks], title: "交叉合并 (2)", detail: `右侧 ${nodes[s].val} 指回原左侧后续。` });
+                }
+
+                f = nextF;
+                s = nextS;
+                steps.push({ phase: 3, line: 'L17', first: f, second: s, links: [...currentLinks], title: "指针迭代", detail: "处理下一组节点。" });
+            }
+
+            return steps;
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const container = document.getElementById('canvas-container');
+            const cw = container.clientWidth;
+            const ch = container.clientHeight;
+            const n = nodes.length;
+
+            // 动态计算坐标
+            nodes.forEach((node, i) => {
+                if (step.phase === 3) {
+                    const mid = Math.floor((n-1)/2);
+                    if (i <= mid) {
+                        node.x = cw * 0.15 + i * (cw * 0.7 / Math.max(1, mid));
+                        node.y = ch * 0.35;
+                    } else {
+                        node.x = cw * 0.15 + (n - 1 - i) * (cw * 0.7 / Math.max(1, mid));
+                        node.y = ch * 0.65;
+                    }
+                } else if (step.phase === 2 && i > Math.floor((n-1)/2)) {
+                    node.x = cw * 0.1 + i * (cw * 0.8 / (n-1));
+                    node.y = ch * 0.65;
+                } else {
+                    node.x = cw * 0.1 + i * (cw * 0.8 / (n-1));
+                    node.y = ch * 0.5;
+                }
+            });
+
+            const nodesGroup = document.getElementById('nodes-group');
+            nodesGroup.innerHTML = nodes.map((node, i) => {
+                let statusClass = "border-slate-300 bg-white";
+                if (step.slow === i) statusClass = "highlight-slow ring-4 ring-red-100 border-red-500 scale-110";
+                if (step.fast === i) statusClass = "highlight-fast ring-4 ring-blue-100 border-blue-500 scale-110";
+                if (step.curr === i) statusClass = "border-amber-500 bg-amber-50 ring-4 ring-amber-100";
+                if (step.first === i || step.second === i) statusClass = "highlight-merge border-emerald-500 ring-4 ring-emerald-100";
+
+                return `
+                    <div class="node-circle w-10 h-10 sm:w-12 sm:h-12 border-4 rounded-full flex items-center justify-center font-black text-slate-700 shadow-md transition-all duration-500" 
+                         style="left: ${node.x}px; top: ${node.y}px; transform: translate(-50%, -50%)">
+                        <span class="text-xs sm:text-base">${node.val}</span>
+                    </div>
+                `;
+            }).join('');
+
+            const linksGroup = document.getElementById('links-group');
+            linksGroup.innerHTML = step.links.map(l => {
+                const from = nodes[l.from];
+                const to = nodes[l.to];
+                if (!from || !to) return '';
+                
+                const isCurve = from.y !== to.y;
+                const isMerge = l.color === '#10b981';
+                
+                let pathD = "";
+                if (isCurve) {
+                    const ctrlX = (from.x + to.x) / 2 + (isMerge ? 25 : -25);
+                    const ctrlY = (from.y + to.y) / 2;
+                    pathD = `M ${from.x} ${from.y} Q ${ctrlX} ${ctrlY} ${to.x} ${to.y}`;
+                } else {
+                    pathD = `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+                }
+
+                let marker = "arrowhead";
+                if (l.color === '#10b981') marker = "arrowhead-active";
+                if (l.color === '#f59e0b') marker = "arrowhead-reverse";
+
+                return `<path d="${pathD}" stroke="${l.color || '#94a3b8'}" stroke-width="2.5" fill="none" marker-end="url(#${marker})" class="arrow-path" />`;
+            }).join('');
+
+            const sPtr = document.getElementById('pointer-slow');
+            const fPtr = document.getElementById('pointer-fast');
+            
+            if (step.slow !== undefined && step.slow !== null) {
+                const sn = nodes[step.slow];
+                sPtr.style.opacity = 1;
+                sPtr.style.left = `${sn.x}px`;
+                sPtr.style.top = `${sn.y - 45}px`;
+                sPtr.style.transform = "translateX(-50%)";
+            } else sPtr.style.opacity = 0;
+
+            if (step.fast !== undefined && step.fast !== null) {
+                const fn = nodes[step.fast];
+                fPtr.style.opacity = 1;
+                fPtr.style.left = `${fn.x}px`;
+                fPtr.style.top = `${fn.y + 15}px`;
+                fPtr.style.transform = "translateX(-50%)";
+            } else fPtr.style.opacity = 0;
+
+            document.getElementById('step-tag').innerText = `STEP ${currentStep + 1}`;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('current-phase').innerText = `PHASE: ${step.phase}`;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+
+            [1, 2, 3].forEach(p => {
+                const b = document.getElementById(`badge-${p}`);
+                if (step.phase === p) b.classList.add('phase-active');
+                else b.classList.remove('phase-active');
+            });
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        
+        window.addEventListener('resize', render);
+        window.onload = () => initNodes([1, 2, 3, 4, 5, 6]);
+    </script>
+</body>
+</html>

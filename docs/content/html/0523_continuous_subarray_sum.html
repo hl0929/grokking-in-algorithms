@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连续子数组和可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .num-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .mod-bucket {
+            transition: all 0.3s ease;
+        }
+
+        .highlight-scan {
+            border-color: #f59e0b;
+            background-color: #fffbeb;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.2);
+        }
+
+        .code-line {
+            padding: 2px 12px;
+            border-left: 3px solid transparent;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #fbbf24;
+            border-left-color: #fbbf24;
+        }
+
+        .match-glow {
+            animation: glow 1.5s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #fbbf24; }
+            to { box-shadow: 0 0 20px #f59e0b; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[820px]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-xl">连续子数组和 (长度 ≥ 2)</h1>
+                    <p class="text-xs text-slate-400 font-medium tracking-wide uppercase">判定：(i - mod_dict[mod]) ≥ 2 $\Rightarrow$ 存在长度至少为2的倍数和子数组</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <select id="data-select" class="text-sm border-slate-200 rounded-lg p-1 text-slate-600 outline-none">
+                    <option value="0">示例 1: [23, 2, 4, 6, 7], k=6</option>
+                    <option value="1">示例 2: [23, 2, 6, 4, 7], k=13</option>
+                    <option value="2">示例 3: [0], k=1</option>
+                </select>
+                <div class="flex items-center gap-2">
+                    <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-amber-500 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-amber-600 shadow-md transition-all">开始演示</button>
+                    <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Visual Area -->
+            <div class="flex-1 p-8 flex flex-col bg-slate-50/50 relative overflow-y-auto">
+                
+                <!-- Array Section -->
+                <div class="mb-8">
+                    <h2 class="text-[10px] font-bold text-slate-400 mb-4 uppercase tracking-widest text-center">输入数组 (nums)</h2>
+                    <div id="array-container" class="flex gap-3 justify-center">
+                        <!-- Array elements injected here -->
+                    </div>
+                </div>
+
+                <!-- Math Trace Section -->
+                <div class="grid grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase">当前余数</div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="val-mod" class="text-3xl font-black text-amber-600">0</span>
+                            <span class="text-xs text-slate-400"> (Prefix % K)</span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase">下标检查</div>
+                        <div class="flex flex-col">
+                            <div class="text-sm font-medium text-slate-700">
+                                当前 i: <span id="val-i" class="text-amber-600 font-bold">-</span>
+                            </div>
+                            <div class="text-sm font-medium text-slate-700">
+                                首次出现: <span id="val-prev-i" class="text-slate-400 font-bold">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="result-box" class="bg-slate-200 p-5 rounded-2xl shadow-lg text-slate-500 flex flex-col justify-center items-center transition-colors duration-500">
+                        <div class="text-[10px] font-bold opacity-70 mb-1 uppercase tracking-tighter">最终结果</div>
+                        <div id="val-result" class="text-2xl font-black italic uppercase">WAITING</div>
+                    </div>
+                </div>
+
+                <!-- Mod Dictionary View -->
+                <div class="flex-1 bg-white rounded-2xl border border-slate-200 shadow-inner p-6">
+                    <h2 class="text-[10px] font-bold text-slate-400 mb-6 uppercase tracking-widest text-center">余数索引字典 (mod_dict: 余数 -> 首次出现下标)</h2>
+                    <div id="dict-container" class="flex flex-wrap gap-4 justify-center">
+                        <!-- Buckets injected here -->
+                    </div>
+                </div>
+
+                <!-- Explanation Tooltip -->
+                <div id="explanation-box" class="mt-6 bg-slate-800 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-amber-500">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded uppercase">STEP</span>
+                        <span id="step-title" class="font-bold text-white">就绪</span>
+                    </div>
+                    <p id="step-detail">点击播放，我们将寻找长度至少为 2 且和为 K 的倍数的子数组。</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code View -->
+            <div class="w-[380px] bg-slate-900 flex flex-col border-l border-slate-800">
+                <div class="p-6 border-b border-slate-800">
+                    <div class="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">关键逻辑</div>
+                    <div class="text-xs text-slate-400">注意：存储的是下标而非次数</div>
+                </div>
+                
+                <div class="flex-1 py-4 code-font">
+                    <div id="L0" class="code-line">mod_dict = {0: -1} # 关键：哨兵下标</div>
+                    <div id="L1" class="code-line">prefix = 0</div>
+                    <div id="L2" class="code-line">for i, num in enumerate(nums):</div>
+                    <div id="L3" class="code-line ml-4">prefix += num</div>
+                    <div id="L4" class="code-line ml-4 text-amber-400">mod = prefix % k</div>
+                    <div id="L5" class="code-line ml-4">if mod in mod_dict:</div>
+                    <div id="L6" class="code-line ml-8 font-bold text-white bg-amber-500/20">if i - mod_dict[mod] >= 2:</div>
+                    <div id="L7" class="code-line ml-12 text-green-400 font-bold">return True</div>
+                    <div id="L8" class="code-line ml-4">else:</div>
+                    <div id="L9" class="code-line ml-8">mod_dict[mod] = i</div>
+                </div>
+                
+                <div class="px-6 py-4 bg-slate-950 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="k-info">K = 6</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const datasets = [
+            { nums: [23, 2, 4, 6, 7], k: 6 },
+            { nums: [23, 2, 6, 4, 7], k: 13 },
+            { nums: [0], k: 1 }
+        ];
+
+        let currentDataIdx = 0;
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function generateSteps() {
+            const { nums, k } = datasets[currentDataIdx];
+            const steps = [];
+            let prefix = 0;
+            let modDict = { 0: -1 };
+
+            steps.push({
+                type: 'INIT',
+                idx: -1,
+                mod: 0,
+                dict: { ...modDict },
+                title: "初始化字典",
+                detail: "设置 {0: -1}。如果第一个数就是 k 的倍数(余数0)，下标 i=0，0-(-1)=1 < 2，正确排除长度为1的情况。",
+                line: 'L0'
+            });
+
+            for (let i = 0; i < nums.length; i++) {
+                const num = nums[i];
+                prefix += num;
+                let mod = k === 0 ? prefix : prefix % k;
+
+                steps.push({
+                    type: 'SCAN',
+                    idx: i,
+                    mod: mod,
+                    dict: { ...modDict },
+                    title: `扫描下标 ${i}: 数值 ${num}`,
+                    detail: `累计前缀和 ${prefix}，余数 ${mod}。检查字典...`,
+                    line: 'L4'
+                });
+
+                if (mod in modDict) {
+                    const prevIdx = modDict[mod];
+                    const diff = i - prevIdx;
+                    
+                    steps.push({
+                        type: 'CHECK',
+                        idx: i,
+                        mod: mod,
+                        prevIdx: prevIdx,
+                        diff: diff,
+                        dict: { ...modDict },
+                        title: "发现相同余数",
+                        detail: `余数 ${mod} 之前在下标 ${prevIdx} 出现过。下标距离: ${i} - (${prevIdx}) = ${diff}。`,
+                        line: 'L6'
+                    });
+
+                    if (diff >= 2) {
+                        steps.push({
+                            type: 'SUCCESS',
+                            idx: i,
+                            mod: mod,
+                            prevIdx: prevIdx,
+                            diff: diff,
+                            dict: { ...modDict },
+                            title: "符合条件！",
+                            detail: `距离 ${diff} ≥ 2，找到目标子数组。返回 True。`,
+                            line: 'L7'
+                        });
+                        return steps;
+                    }
+                } else {
+                    modDict[mod] = i;
+                    steps.push({
+                        type: 'UPDATE',
+                        idx: i,
+                        mod: mod,
+                        dict: { ...modDict },
+                        title: "记录新余数",
+                        detail: `余数 ${mod} 第一次出现，记录其下标 ${i} 到字典。`,
+                        line: 'L9'
+                    });
+                }
+            }
+
+            steps.push({
+                type: 'FAIL',
+                idx: -1,
+                mod: null,
+                dict: { ...modDict },
+                title: "未找到",
+                detail: "扫描完整个数组，未发现长度 ≥ 2 的合法子数组。返回 False。",
+                line: 'L9'
+            });
+
+            return steps;
+        }
+
+        function updateUI() {
+            const step = steps[currentStep];
+            const { nums, k } = datasets[currentDataIdx];
+
+            // Update Array
+            const arrayContainer = document.getElementById('array-container');
+            arrayContainer.innerHTML = nums.map((n, i) => `
+                <div class="num-card w-16 h-16 bg-white border-2 rounded-xl flex flex-col items-center justify-center shadow-sm ${i === step.idx ? 'highlight-scan' : 'border-slate-200'}">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase">idx ${i}</span>
+                    <span class="text-lg font-black text-slate-700">${n}</span>
+                </div>
+            `).join('');
+
+            // Values
+            document.getElementById('val-mod').innerText = step.mod !== null ? step.mod : "-";
+            document.getElementById('val-i').innerText = step.idx !== -1 ? step.idx : "-";
+            document.getElementById('val-prev-i').innerText = step.prevIdx !== undefined ? step.prevIdx : "None";
+
+            // Result Box
+            const resBox = document.getElementById('result-box');
+            const resVal = document.getElementById('val-result');
+            if (step.type === 'SUCCESS') {
+                resBox.className = "bg-green-500 p-5 rounded-2xl shadow-lg text-white flex flex-col justify-center items-center match-glow";
+                resVal.innerText = "TRUE";
+            } else if (step.type === 'FAIL') {
+                resBox.className = "bg-rose-500 p-5 rounded-2xl shadow-lg text-white flex flex-col justify-center items-center";
+                resVal.innerText = "FALSE";
+            } else {
+                resBox.className = "bg-slate-200 p-5 rounded-2xl shadow-lg text-slate-500 flex flex-col justify-center items-center";
+                resVal.innerText = "WAITING";
+            }
+
+            // Dict View
+            const dictContainer = document.getElementById('dict-container');
+            dictContainer.innerHTML = Object.entries(step.dict).map(([m, idx]) => `
+                <div class="mod-bucket w-24 p-3 rounded-xl border-2 flex flex-col items-center gap-1 ${step.mod == m ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-100' : 'border-slate-100 bg-slate-50'}">
+                    <div class="text-[9px] font-bold text-slate-400 uppercase">REM: ${m}</div>
+                    <div class="text-sm font-black text-slate-700">First @ ${idx}</div>
+                </div>
+            `).join('');
+
+            // Code & Info
+            document.getElementById('step-tag').innerText = step.type;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+            document.getElementById('k-info').innerText = `K = ${k}`;
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            document.getElementById(step.line).classList.add('active');
+        }
+
+        function init() {
+            steps = generateSteps();
+            currentStep = 0;
+            updateUI();
+        }
+
+        document.getElementById('data-select').onchange = (e) => {
+            currentDataIdx = parseInt(e.target.value);
+            if(timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "开始演示"; }
+            init();
+        };
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; updateUI();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; updateUI();} };
+        
+        document.getElementById('btn-play').onclick = () => {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        clearInterval(timer);
+                        timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 1000);
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

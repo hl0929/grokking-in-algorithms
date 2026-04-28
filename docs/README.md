@@ -63,6 +63,8 @@
 
 [0142. 环形链表II](./content/0142_linked_list_cycle_ii.md)
 
+[0143. 重排链表](./content/0143_reorder_list.md)
+
 [0146. LRU 缓存](./content/0146_lru_cache.md)
 
 [0148. 排序链表](./content/0148_sort_list.md)
@@ -103,6 +105,8 @@
 
 [0448. 找到所有数组中消失的数字](./content/0448_find_all_numbers_disappeared_in_an_array.md)
 
+[0523. 连续的子数组和](./content/0523_continuous_subarray_sum.md)
+
 [0560. 和为 K 的子数组](./content/0560_subarray_sum_equals_k.md)
 
 [0567. 字符串的排列](./content/0567_permutation_in_string.md)
@@ -110,6 +114,8 @@
 [0739. 每日温度](./content/0739_daily_temperatures.md)
 
 [0876. 链表的中间结点](./content/0876_middle_of_the_linked_list.md)
+
+[0974. 和可被K整除的子数组](./content/0974_subarrays_sums_divisible_by_k.md)
 
 [1143. 最长公共子序列](./content/1143_longest_common_subsequence.md)
 
