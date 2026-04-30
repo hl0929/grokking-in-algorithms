@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速排序算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .num-card {
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .pivot {
+            background-color: #f59e0b !important;
+            border-color: #d97706 !important;
+            color: white !important;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            transform: scale(1.1) translateY(-5px);
+        }
+        .left-group { color: #3b82f6; }
+        .right-group { color: #ec4899; }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .branch-line {
+            position: absolute;
+            height: 2px;
+            background: #e2e8f0;
+            transform-origin: left center;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">快速排序 (Quick Sort)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Divide & Conquer: Pivot Selection</p>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-amber-500 text-white px-5 py-1.5 rounded-lg text-sm font-bold hover:bg-amber-600 shadow-md transition-all">播放演示</button>
+                    <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                    <button id="btn-reset" class="ml-2 text-xs text-slate-400 hover:text-slate-600 underline">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Visual Area -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-8 overflow-hidden">
+                <!-- Status Row -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">当前基准 (Pivot)</div>
+                        <div id="val-pivot" class="text-xl font-black text-amber-500">-</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">递归深度</div>
+                        <div id="val-depth" class="text-xl font-black text-blue-500">0</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">当前动作</div>
+                        <div id="val-action" class="text-xs font-bold text-slate-700 mt-1 italic">准备排序</div>
+                    </div>
+                </div>
+
+                <!-- Recursion Tree Visualization -->
+                <div id="viz-container" class="flex-1 relative bg-white rounded-3xl border-2 border-dashed border-slate-200 p-4 overflow-auto no-scrollbar">
+                    <div id="tree-root" class="min-w-full flex flex-col items-center gap-12 pt-10">
+                        <!-- Levels of recursion will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Explanation -->
+                <div class="mt-6 bg-slate-900 rounded-xl p-5 text-slate-300 text-xs leading-relaxed border-l-4 border-amber-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="step-tag" class="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded uppercase">QUICK SORT</span>
+                        <span id="step-title" class="font-bold text-white italic text-sm">算法分析</span>
+                    </div>
+                    <p id="step-detail">点击播放查看分治过程。我们将数组第一个元素作为基准值，将其他元素分为比它小、等于它、比它大三部分。</p>
+                </div>
+            </div>
+
+            <!-- Code Sidebar -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recursive Logic</span>
+                    <span class="text-[9px] text-slate-600 italic">Average O(N log N)</span>
+                </div>
+                
+                <div class="flex-1 py-6 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">def _quick_sort(nums):</div>
+                    <div id="L2" class="code-line ml-4">if len(nums) < 2:</div>
+                    <div id="L3" class="code-line ml-8">return nums</div>
+                    <div id="L4" class="code-line ml-4 mt-2 font-bold text-amber-400 italic">mid = nums[0]  # Pivot</div>
+                    <div id="L5" class="code-line ml-4 mt-2">left = [i for i in nums if i < mid]</div>
+                    <div id="L6" class="code-line ml-4">middle = [i for i in nums if i == mid]</div>
+                    <div id="L7" class="code-line ml-4">right = [i for i in nums if i > mid]</div>
+                    <div id="L8" class="code-line ml-4 mt-2 text-blue-400">return _quick_sort(left) + middle + \</div>
+                    <div id="L9" class="code-line ml-16 text-pink-400">_quick_sort(right)</div>
+                </div>
+
+                <div class="p-6 bg-black/20 border-t border-slate-800">
+                    <h3 class="text-slate-400 text-[10px] font-black uppercase mb-3">分治策略</h3>
+                    <div class="space-y-3">
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-amber-400 font-bold">1. 基准：</span>
+                            <span class="text-slate-500">选择第一个元素作为 Pivot。</span>
+                        </div>
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-amber-400 font-bold">2. 分区：</span>
+                            <span class="text-slate-500">Left (<), Middle (==), Right (>)。</span>
+                        </div>
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-amber-400 font-bold">3. 递归：</span>
+                            <span class="text-slate-500">对 Left 和 Right 继续快排。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const initialNums = [5, 1, 1, 2, 0, 0];
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        // Trace the recursion
+        function traceQuickSort(nums, depth = 0) {
+            if (nums.length === 0) return { nums: [], depth, isLeaf: true };
+            if (nums.length < 2) {
+                const node = { nums: [...nums], depth, isLeaf: true };
+                steps.push({ 
+                    type: 'leaf', nums: [...nums], depth, line: 'L3', 
+                    title: '基础情况', detail: `数组长度 < 2，直接返回 ${JSON.stringify(nums)}`
+                });
+                return node;
+            }
+
+            const pivot = nums[0];
+            steps.push({ 
+                type: 'pivot', nums: [...nums], pivot, depth, line: 'L4',
+                title: '选择基准值', detail: `当前子数组为 ${JSON.stringify(nums)}，选择第一个元素 ${pivot} 作为基准值。`
+            });
+
+            const left = nums.filter(i => i < pivot);
+            const middle = nums.filter(i => i === pivot);
+            const right = nums.filter(i => i > pivot);
+
+            steps.push({
+                type: 'partition', nums: [...nums], pivot, left, middle, right, depth, line: 'L5',
+                title: '分区处理', detail: `小于 ${pivot} 的放左边: ${JSON.stringify(left)}；等于的放中间: ${JSON.stringify(middle)}；大于的放右边: ${JSON.stringify(right)}。`
+            });
+
+            const node = {
+                nums: [...nums],
+                pivot,
+                depth,
+                leftNode: traceQuickSort(left, depth + 1),
+                middle,
+                rightNode: traceQuickSort(right, depth + 1)
+            };
+
+            steps.push({
+                type: 'merge', nums: [...nums], depth, line: 'L8',
+                title: '合并结果', detail: `将左侧排序结果、中间部分和右侧排序结果进行拼接。`
+            });
+
+            return node;
+        }
+
+        function reset() {
+            steps = [];
+            traceQuickSort(initialNums);
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放演示"; }
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const root = document.getElementById('tree-root');
+            root.innerHTML = '';
+            
+            // Build visual levels based on step information
+            // Simple visual approach: only show the current focused node and its context
+            const container = document.createElement('div');
+            container.className = "flex flex-col items-center gap-10";
+            
+            const arrayToHtml = (arr, isPivotIdx = -1, colorClass = "border-slate-200") => {
+                return `<div class="flex gap-2">
+                    ${arr.map((n, i) => `
+                        <div class="num-card w-10 h-12 bg-white border-2 ${colorClass} rounded-lg flex items-center justify-center font-black shadow-sm ${i === isPivotIdx ? 'pivot' : ''}">
+                            ${n}
+                        </div>
+                    `).join('')}
+                </div>`;
+            };
+
+            const nodeHtml = `
+                <div class="flex flex-col items-center gap-8">
+                    <!-- Current focused array -->
+                    <div class="scale-110 transition-transform duration-500">
+                        ${arrayToHtml(step.nums, (step.type === 'pivot' || step.type === 'partition') ? 0 : -1)}
+                    </div>
+                    
+                    ${step.type === 'partition' ? `
+                        <div class="flex gap-16 relative">
+                            <div class="flex flex-col items-center gap-2">
+                                <div class="text-[9px] font-black text-blue-500 uppercase">LEFT (<)</div>
+                                ${arrayToHtml(step.left, -1, "border-blue-200 text-blue-600")}
+                            </div>
+                            <div class="flex flex-col items-center gap-2">
+                                <div class="text-[9px] font-black text-amber-500 uppercase">MIDDLE (==)</div>
+                                ${arrayToHtml(step.middle, -1, "border-amber-200 text-amber-600")}
+                            </div>
+                            <div class="flex flex-col items-center gap-2">
+                                <div class="text-[9px] font-black text-pink-500 uppercase">RIGHT (>)</div>
+                                ${arrayToHtml(step.right, -1, "border-pink-200 text-pink-600")}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            root.innerHTML = nodeHtml;
+
+            // UI Text
+            document.getElementById('val-pivot').innerText = step.pivot !== undefined ? step.pivot : "-";
+            document.getElementById('val-depth').innerText = step.depth;
+            document.getElementById('val-action').innerText = step.title;
+            
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-tag').innerText = `STEP ${currentStep + 1} / ${steps.length}`;
+
+            // Code highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重新开始";
+                    }
+                }, 1500);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('btn-reset').onclick = reset;
+
+        window.onload = reset;
+    </script>
+</body>
+</html>

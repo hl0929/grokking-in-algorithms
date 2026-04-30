@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nim 游戏算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .stone {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stone.removed {
+            transform: scale(0);
+            opacity: 0;
+        }
+        .stone.highlight {
+            box-shadow: 0 0 15px #f59e0b;
+            border-color: #f59e0b;
+            transform: translateY(-4px);
+        }
+        .stone.group-marker {
+            outline: 2px dashed #cbd5e1;
+            outline-offset: 4px;
+        }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">Nim 游戏 (巴什博弈)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 292. Nim Game</p>
+                </div>
+            </div>
+            
+            <!-- Input Control -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
+                    <span class="text-xs font-bold text-slate-500">石头数量 N:</span>
+                    <input type="number" id="input-n" value="7" min="1" max="16" class="w-12 bg-transparent border-none text-sm font-black text-indigo-600 focus:ring-0">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md">开始演示</button>
+                    <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Main Display -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-8 overflow-hidden">
+                <!-- Status -->
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 font-black uppercase mb-1">当前回合</div>
+                        <div id="display-turn" class="text-lg font-black text-indigo-600">-</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 font-black uppercase mb-1">剩余石头</div>
+                        <div id="display-rem" class="text-2xl font-black text-slate-800">0</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 font-black uppercase mb-1">结论预测</div>
+                        <div id="display-result" class="text-lg font-black italic">-</div>
+                    </div>
+                </div>
+
+                <!-- Game Board -->
+                <div class="flex-1 flex items-center justify-center relative border-2 border-dashed border-slate-200 rounded-3xl bg-white/50">
+                    <div id="stone-grid" class="grid grid-cols-4 gap-6 p-8">
+                        <!-- Stones will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Analysis Box -->
+                <div class="mt-6 bg-slate-900 rounded-xl p-5 text-slate-300 text-xs leading-relaxed border-l-4 border-indigo-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="step-tag" class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">ANALYSIS</span>
+                        <span id="step-title" class="font-bold text-white italic text-sm">博弈状态分析</span>
+                    </div>
+                    <p id="step-detail">点击“开始演示”查看博弈过程。关键在于：只要石头数不是 4 的倍数，先手总能通过拿走一部分，让剩余石头变成 4 的倍数留给对方。</p>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Logic Code</span>
+                    <span class="text-[9px] text-slate-600 italic">O(1) Solution</span>
+                </div>
+                
+                <div class="flex-1 py-6 code-font">
+                    <div id="L1" class="code-line">def canWinNim(n):</div>
+                    <div id="L2" class="code-line ml-4 mt-2"># 如果 n 是 4 的倍数</div>
+                    <div id="L3" class="code-line ml-4"># 无论你拿 1, 2, 3 个</div>
+                    <div id="L4" class="code-line ml-4"># 对手总能拿走剩下的部分凑成 4</div>
+                    <div id="L5" class="code-line ml-4 mt-2 font-bold text-blue-400 italic">return n % 4 != 0</div>
+                </div>
+
+                <div class="p-6 bg-black/20 border-t border-slate-800">
+                    <h3 class="text-slate-400 text-[10px] font-black uppercase mb-3">关键点提示</h3>
+                    <ul class="space-y-3">
+                        <li class="flex gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1"></div>
+                            <p class="text-[11px] text-slate-500">你是先手，每次可拿 1-3 块。</p>
+                        </li>
+                        <li class="flex gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1"></div>
+                            <p class="text-[11px] text-slate-500">拿到最后一块石头的人获胜。</p>
+                        </li>
+                        <li class="flex gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1"></div>
+                            <p class="text-[11px] text-slate-500">每 4 个石块组成一个“必胜循环”。</p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let n = 7;
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function generateSteps() {
+            const resSteps = [];
+            let rem = n;
+            const canWin = n % 4 !== 0;
+
+            // Step 0: Initial
+            resSteps.push({
+                rem: n, turn: "准备", line: "L1",
+                title: "博弈开始",
+                detail: `初始共有 ${n} 块石头。预测：${canWin ? '先手必胜 (Win)' : '先手必败 (Loss)'}。`
+            });
+
+            if (canWin) {
+                // First turn: Pro-player makes rem % 4 == 0
+                const take = n % 4;
+                const prevRem = rem;
+                rem -= take;
+                resSteps.push({
+                    rem, turn: "先手 (你)", line: "L5", taken: take,
+                    title: "你的回合 (主动攻击)",
+                    detail: `你拿走了 ${take} 块石头，剩余 ${rem} 块。现在剩余数量是 4 的倍数，你掌握了主动权！`
+                });
+
+                while (rem > 0) {
+                    // Opponent takes random (say 1)
+                    const oppTake = Math.min(rem, 1);
+                    rem -= oppTake;
+                    resSteps.push({
+                        rem, turn: "对手", line: "L5", taken: oppTake,
+                        title: "对手回合",
+                        detail: `对手拿走了 ${oppTake} 块。剩余 ${rem} 块。`
+                    });
+
+                    // You react to make it 4
+                    const myTake = 4 - oppTake;
+                    rem -= myTake;
+                    resSteps.push({
+                        rem, turn: "先手 (你)", line: "L5", taken: myTake,
+                        title: "你的回合 (凑4策略)",
+                        detail: `对手拿了 ${oppTake}，你就拿 ${myTake}。两者相加为 4。这样剩余石头依然是 4 的倍数！`
+                    });
+                }
+            } else {
+                // First turn: Opponent is smarter
+                resSteps.push({
+                    rem: n, turn: "先手 (你)", line: "L5",
+                    title: "你的回合 (陷入被动)",
+                    detail: `你是先手但总数是 4 的倍数。无论你拿几块(1-3)，对手都能让你面对下一轮 4 的倍数。`
+                });
+                
+                const take = 1;
+                rem -= take;
+                resSteps.push({
+                    rem, turn: "先手 (你)", line: "L5", taken: take,
+                    title: "你的回合",
+                    detail: `你尝试拿走 ${take} 块。剩余 ${rem} 块。`
+                });
+
+                const oppTake = 4 - take;
+                rem -= oppTake;
+                resSteps.push({
+                    rem, turn: "对手", line: "L5", taken: oppTake,
+                    title: "对手回合 (完美反击)",
+                    detail: `对手拿走 ${oppTake} 块，将剩余石头凑回 4 的倍数 (${rem} 块)。对手掌握了局势。`
+                });
+            }
+
+            return resSteps;
+        }
+
+        function reset() {
+            n = parseInt(document.getElementById('input-n').value) || 7;
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "开始演示"; }
+            
+            const isWin = n % 4 !== 0;
+            const resEl = document.getElementById('display-result');
+            resEl.innerText = isWin ? "先手必胜" : "先手必败";
+            resEl.className = isWin ? "text-lg font-black italic text-emerald-500" : "text-lg font-black italic text-rose-500";
+            
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const grid = document.getElementById('stone-grid');
+            
+            // Build stone grid (max 16 for visual)
+            let html = '';
+            for (let i = 1; i <= n; i++) {
+                const isRemoved = i > step.rem;
+                const isJustTaken = step.taken && (i > step.rem && i <= step.rem + step.taken);
+                
+                let stoneClass = "stone w-10 h-10 sm:w-12 sm:h-12 rounded-full border-4 flex items-center justify-center font-bold text-sm ";
+                if (isRemoved) {
+                    stoneClass += "removed bg-slate-200 border-slate-300 text-transparent ";
+                } else {
+                    stoneClass += "bg-white border-slate-200 text-slate-400 shadow-sm ";
+                }
+                if (isJustTaken) stoneClass += "highlight ";
+
+                html += `<div class="${stoneClass}">${i}</div>`;
+            }
+            grid.innerHTML = html;
+
+            // UI Text
+            document.getElementById('display-turn').innerText = step.turn;
+            document.getElementById('display-rem').innerText = step.rem;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-tag').innerText = step.rem === 0 ? "FINISH" : "STEP " + currentStep;
+
+            // Code highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重新开始";
+                    }
+                }, 1200);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('input-n').onchange = reset;
+
+        window.onload = reset;
+    </script>
+</body>
+</html>

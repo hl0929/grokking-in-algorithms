@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轮转数组算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .num-card {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .num-card.moving {
+            z-index: 10;
+            transform: scale(1.1);
+            border-color: #f59e0b;
+        }
+        .num-card.in-range {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">轮转数组 (三步反转法)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 189. Rotate Array</p>
+                </div>
+            </div>
+            
+            <!-- Test Cases -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                <button onclick="setTestCase([1,2,3,4,5,6,7], 3, this)" class="px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm active-case">Case 1: k=3</button>
+                <button onclick="setTestCase([1,2,3,4], 2, this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 2: k=2</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-amber-700 shadow-md">播放</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Main Content -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-6 overflow-hidden">
+                <!-- Status Row -->
+                <div class="flex justify-center gap-4 mb-8">
+                    <div class="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Rotation K</div>
+                        <div id="display-k" class="text-3xl font-black text-amber-600">3</div>
+                    </div>
+                    <div class="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Action</div>
+                        <div id="display-action" class="text-sm font-bold text-slate-700 mt-2 italic">准备开始...</div>
+                    </div>
+                </div>
+
+                <!-- Array Visualization Area -->
+                <div id="array-container" class="flex-1 flex flex-col items-center justify-center p-4 relative">
+                    <div id="numbers-list" class="flex gap-2 sm:gap-4 flex-wrap justify-center items-center h-40">
+                        <!-- Cards -->
+                    </div>
+                    
+                    <!-- SVG Overlay -->
+                    <div class="absolute inset-0 pointer-events-none">
+                        <svg id="pointer-svg" width="100%" height="100%" class="overflow-visible"></svg>
+                    </div>
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="mt-4 bg-slate-900 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-amber-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded uppercase">PHASE</span>
+                        <span id="step-title" class="font-bold text-white italic text-sm">算法分析</span>
+                    </div>
+                    <p id="step-detail">轮转数组可以通过三次反转在原地、O(1) 空间内完成。首先反转整个数组，然后反转前 k 个，最后反转剩余部分。</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rotation Logic</span>
+                    <span class="text-[9px] text-slate-600 italic">O(N) Time | O(1) Space</span>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">def rotate(nums, k):</div>
+                    <div id="L2" class="code-line ml-4">n = len(nums)</div>
+                    <div id="L3" class="code-line ml-4">k %= n</div>
+                    <div id="L4" class="code-line mt-2 ml-4 bg-amber-900/20"># 1. 反转全数组</div>
+                    <div id="L5" class="code-line ml-4">reverse(0, n - 1)</div>
+                    <div id="L6" class="code-line mt-2 ml-4 bg-blue-900/20"># 2. 反转前 k 个</div>
+                    <div id="L7" class="code-line ml-4">reverse(0, k - 1)</div>
+                    <div id="L8" class="code-line mt-2 ml-4 bg-indigo-900/20"># 3. 反转后 n-k 个</div>
+                    <div id="L9" class="code-line ml-4">reverse(k, n - 1)</div>
+                    <div id="L10" class="code-line mt-4">def reverse(start, end):</div>
+                    <div id="L11" class="code-line ml-4">while start < end:</div>
+                    <div id="L12" class="code-line ml-8">nums[start], nums[end] = nums[end], nums[start]</div>
+                    <div id="L13" class="code-line ml-8">start += 1; end -= 1</div>
+                </div>
+                
+                <div class="px-4 py-3 bg-black/30 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="current-range">Range: -</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nums = [1, 2, 3, 4, 5, 6, 7];
+        let k = 3;
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function setTestCase(newNums, newK, btn) {
+            document.querySelectorAll('.active-case').forEach(el => el.classList.remove('active-case', 'bg-white', 'shadow-sm'));
+            btn.classList.add('active-case', 'bg-white', 'shadow-sm');
+            nums = [...newNums];
+            k = newK;
+            reset();
+        }
+
+        function generateSteps() {
+            const resSteps = [];
+            let currentNums = [...nums];
+            const n = currentNums.length;
+            const targetK = k % n;
+
+            function addReverseSteps(start, end, phaseTitle, line) {
+                let s = start;
+                let e = end;
+                
+                resSteps.push({
+                    nums: [...currentNums], start, end, line, activeS: null, activeE: null,
+                    title: phaseTitle, detail: `开始反转索引 [${start}, ${end}] 之间的元素。`
+                });
+
+                while (s < e) {
+                    // Highlight swapping
+                    resSteps.push({
+                        nums: [...currentNums], start, end, line: 'L12', activeS: s, activeE: e,
+                        title: phaseTitle, detail: `交换索引 ${s} (${currentNums[s]}) 和 ${e} (${currentNums[e]})。`
+                    });
+
+                    [currentNums[s], currentNums[e]] = [currentNums[e], currentNums[s]];
+                    
+                    resSteps.push({
+                        nums: [...currentNums], start, end, line: 'L13', activeS: s, activeE: e,
+                        title: phaseTitle, detail: `移动指针：start++, end--。`
+                    });
+                    
+                    s++; e--;
+                }
+            }
+
+            // Phase 1: Total
+            addReverseSteps(0, n - 1, "阶段 1: 反转全数组", "L5");
+
+            // Phase 2: First K
+            addReverseSteps(0, targetK - 1, "阶段 2: 反转前 K 个", "L7");
+
+            // Phase 3: Remaining
+            addReverseSteps(targetK, n - 1, "阶段 3: 反转剩余部分", "L9");
+
+            resSteps.push({
+                nums: [...currentNums], start: null, end: null, line: null,
+                title: "完成！", detail: `数组轮转成功：${JSON.stringify(currentNums)}`
+            });
+
+            return resSteps;
+        }
+
+        function reset() {
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            document.getElementById('display-k').innerText = k % nums.length;
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const list = document.getElementById('numbers-list');
+            
+            // Create a mapping to keep stable IDs if possible, but for simplicity we recreate
+            list.innerHTML = step.nums.map((num, i) => {
+                const isInRange = step.start !== null && i >= step.start && i <= step.end;
+                const isSwapping = i === step.activeS || i === step.activeE;
+                
+                let cardClass = "num-card w-12 h-16 sm:w-14 sm:h-20 bg-white border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center relative ";
+                if (isInRange) cardClass += "in-range border-blue-300 ";
+                if (isSwapping) cardClass += "moving ring-4 ring-amber-500/30 border-amber-500 ";
+
+                return `
+                    <div id="card-${i}" class="${cardClass}">
+                        <span class="text-[8px] font-bold text-slate-400 absolute top-1">idx ${i}</span>
+                        <span class="text-lg sm:text-xl font-black ${isSwapping ? 'text-amber-600' : 'text-slate-800'}">${num}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Pointer Range
+            document.getElementById('current-range').innerText = step.start !== null ? `[${step.start}, ${step.end}]` : "-";
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+            document.getElementById('display-action').innerText = step.title;
+
+            // Text Info
+            document.getElementById('step-tag').innerText = step.start === null ? "DONE" : "REVERSING";
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+
+            // Code Highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+
+            drawPointers();
+        }
+
+        function drawPointers() {
+            const step = steps[currentStep];
+            const svg = document.getElementById('pointer-svg');
+            const container = document.getElementById('array-container').getBoundingClientRect();
+            
+            if (step.activeS === null || step.activeE === null) {
+                svg.innerHTML = '';
+                return;
+            }
+
+            const sCard = document.getElementById(`card-${step.activeS}`).getBoundingClientRect();
+            const eCard = document.getElementById(`card-${step.activeE}`).getBoundingClientRect();
+
+            const sx = sCard.left + sCard.width / 2 - container.left;
+            const ex = eCard.left + eCard.width / 2 - container.left;
+            const y = sCard.bottom - container.top + 10;
+
+            svg.innerHTML = `
+                <g>
+                    <path d="M${sx} ${y+30} L${sx} ${y+5}" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+                    <text x="${sx}" y="${y+42}" text-anchor="middle" class="fill-amber-600 font-black text-[9px]">START</text>
+                </g>
+                <g>
+                    <path d="M${ex} ${y+30} L${ex} ${y+5}" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+                    <text x="${ex}" y="${y+42}" text-anchor="middle" class="fill-amber-600 font-black text-[9px]">END</text>
+                </g>
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+                    </marker>
+                </defs>
+            `;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 800);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        
+        window.addEventListener('resize', drawPointers);
+        window.onload = reset;
+    </script>
+</body>
+</html>

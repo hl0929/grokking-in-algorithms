@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>接雨水算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .bar {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .water {
+            fill: #3b82f6;
+            opacity: 0.6;
+            transition: height 0.4s ease, y 0.4s ease;
+        }
+        .pointer {
+            transition: all 0.4s ease;
+        }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">接雨水可视化 (双指针)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 42. Trapping Rain Water</p>
+                </div>
+            </div>
+            
+            <!-- Test Cases -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                <button onclick="setTestCase([0,1,0,2,1,0,1,3,2,1,2,1], this)" class="px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm active-case">Case 1: Standard</button>
+                <button onclick="setTestCase([4,2,0,3,2,5], this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 2: Valley</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md">播放</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Main Content: Viz Area -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-6 overflow-hidden">
+                <!-- Stats Row -->
+                <div class="grid grid-cols-4 gap-2 mb-6">
+                    <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Left Max</div>
+                        <div id="stat-lmax" class="text-lg font-black text-blue-600">0</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Right Max</div>
+                        <div id="stat-rmax" class="text-lg font-black text-indigo-600">0</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Current Total</div>
+                        <div id="stat-total" class="text-lg font-black text-emerald-600">0</div>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Comparison</div>
+                        <div id="stat-cmp" class="text-xs font-bold text-slate-700 mt-1">L < R</div>
+                    </div>
+                </div>
+
+                <!-- SVG Visualization Container -->
+                <div id="viz-container" class="flex-1 bg-white rounded-xl border border-slate-200 shadow-inner relative overflow-hidden flex items-center justify-center p-4">
+                    <svg id="main-svg" width="100%" height="100%" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet">
+                        <!-- Content Injected by JS -->
+                    </svg>
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="mt-4 bg-slate-900 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-blue-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-black rounded uppercase">Step 0</span>
+                        <span id="step-title" class="font-bold text-white italic">双指针初始化</span>
+                    </div>
+                    <p id="step-detail">设置左指针为 0，右指针为末尾。记录两端的最大高度。</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trapping Logic</span>
+                    <span class="text-[9px] text-slate-600 italic">Two Pointers</span>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">left, right = 0, len(height) - 1</div>
+                    <div id="L2" class="code-line">l_max, r_max = height[left], height[right]</div>
+                    <div id="L3" class="code-line">total = 0</div>
+                    <div id="L4" class="code-line mt-2">while left < right:</div>
+                    <div id="L5" class="code-line ml-4">if height[left] < height[right]:</div>
+                    <div id="L6" class="code-line ml-8">left += 1</div>
+                    <div id="L7" class="code-line ml-8">l_max = max(l_max, height[left])</div>
+                    <div id="L8" class="code-line ml-8 font-semibold text-blue-400">total += l_max - height[left]</div>
+                    <div id="L9" class="code-line ml-4">else:</div>
+                    <div id="L10" class="code-line ml-8">right -= 1</div>
+                    <div id="L11" class="code-line ml-8">r_max = max(r_max, height[right])</div>
+                    <div id="L12" class="code-line ml-8 font-semibold text-blue-400">total += r_max - height[right]</div>
+                    <div id="L13" class="code-line mt-2">return total</div>
+                </div>
+                
+                <div class="px-4 py-3 bg-black/30 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="current-info">Pointers: 0, 11</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let heightData = [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1];
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function setTestCase(newHeight, btn) {
+            document.querySelectorAll('.active-case').forEach(el => el.classList.remove('active-case', 'bg-white', 'shadow-sm'));
+            btn.classList.add('active-case', 'bg-white', 'shadow-sm');
+            heightData = newHeight;
+            reset();
+        }
+
+        function generateSteps() {
+            const h = [...heightData];
+            const n = h.length;
+            const resSteps = [];
+            
+            let left = 0;
+            let right = n - 1;
+            let lMax = h[left];
+            let rMax = h[right];
+            let total = 0;
+            let waterArr = new Array(n).fill(0);
+
+            // Init Step
+            resSteps.push({
+                left, right, lMax, rMax, total, 
+                water: [...waterArr], line: 'L2',
+                title: "初始化指针", detail: `左指针 at 0 (${h[0]}), 右指针 at ${n-1} (${h[n-1]})。`
+            });
+
+            while (left < right) {
+                let prevLeft = left;
+                let prevRight = right;
+                let moved = '';
+
+                if (h[left] < h[right]) {
+                    left++;
+                    moved = 'left';
+                    const diff = Math.max(0, lMax - h[left]);
+                    lMax = Math.max(lMax, h[left]);
+                    total += lMax - h[left];
+                    waterArr[left] = lMax - h[left];
+
+                    resSteps.push({
+                        left, right, lMax, rMax, total, 
+                        water: [...waterArr], line: 'L8', activeIdx: left,
+                        title: "移动左指针", detail: `h[left] < h[right]，左指针右移。左侧最高降至 ${lMax}，此处积水 ${waterArr[left]}。`
+                    });
+                } else {
+                    right--;
+                    moved = 'right';
+                    const diff = Math.max(0, rMax - h[right]);
+                    rMax = Math.max(rMax, h[right]);
+                    total += rMax - h[right];
+                    waterArr[right] = rMax - h[right];
+
+                    resSteps.push({
+                        left, right, lMax, rMax, total, 
+                        water: [...waterArr], line: 'L12', activeIdx: right,
+                        title: "移动右指针", detail: `h[left] >= h[right]，右指针左移。右侧最高降至 ${rMax}，此处积水 ${waterArr[right]}。`
+                    });
+                }
+            }
+
+            resSteps.push({
+                ...resSteps[resSteps.length-1], line: 'L13',
+                title: "计算结束", detail: `指针重合，总计接水量为 ${total}。`
+            });
+
+            return resSteps;
+        }
+
+        function reset() {
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const svg = document.getElementById('main-svg');
+            const n = heightData.length;
+            const maxH = Math.max(...heightData, 1);
+            
+            const padding = 40;
+            const width = 600;
+            const height = 300;
+            const barWidth = (width - padding * 2) / n;
+            const unitH = (height - padding * 2) / (maxH + 1);
+
+            let content = '';
+
+            // Draw Water First (Background)
+            step.water.forEach((w, i) => {
+                if (w > 0) {
+                    const x = padding + i * barWidth;
+                    const hBase = heightData[i] * unitH;
+                    const hWater = w * unitH;
+                    content += `<rect class="water" x="${x+2}" y="${height - padding - hBase - hWater}" width="${barWidth-4}" height="${hWater}" rx="2" />`;
+                }
+            });
+
+            // Draw Bars
+            heightData.forEach((h, i) => {
+                const x = padding + i * barWidth;
+                const barH = h * unitH;
+                const isActive = step.activeIdx === i;
+                const isL = step.left === i;
+                const isR = step.right === i;
+
+                let color = "fill-slate-700";
+                if (isL) color = "fill-blue-500";
+                if (isR) color = "fill-indigo-500";
+
+                content += `<rect class="bar ${color} ${isActive ? 'stroke-yellow-400 stroke-2' : ''}" x="${x+2}" y="${height - padding - barH}" width="${barWidth-4}" height="${Math.max(barH, 2)}" rx="2" />`;
+                
+                // Index Labels
+                content += `<text x="${x + barWidth/2}" y="${height - padding + 15}" text-anchor="middle" class="fill-slate-400 text-[10px] font-medium">${i}</text>`;
+            });
+
+            // Draw Pointers
+            const lx = padding + step.left * barWidth + barWidth/2;
+            content += `
+                <g class="pointer" transform="translate(${lx}, ${height - padding + 25})">
+                    <path d="M0 0 L-5 10 L5 10 Z" class="fill-blue-600" />
+                    <text y="22" text-anchor="middle" class="fill-blue-600 font-bold text-[10px]">LEFT</text>
+                </g>
+            `;
+
+            const rx = padding + step.right * barWidth + barWidth/2;
+            content += `
+                <g class="pointer" transform="translate(${rx}, ${height - padding + 25})">
+                    <path d="M0 0 L-5 10 L5 10 Z" class="fill-indigo-600" />
+                    <text y="22" text-anchor="middle" class="fill-indigo-600 font-bold text-[10px]">RIGHT</text>
+                </g>
+            `;
+
+            svg.innerHTML = content;
+
+            // Stats Update
+            document.getElementById('stat-lmax').innerText = step.lMax;
+            document.getElementById('stat-rmax').innerText = step.rMax;
+            document.getElementById('stat-total').innerText = step.total;
+            document.getElementById('stat-cmp').innerText = heightData[step.left] < heightData[step.right] ? "L < R" : "L >= R";
+
+            // Info Updates
+            document.getElementById('step-tag').innerText = `Step ${currentStep}`;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('current-info').innerText = `Pointers: ${step.left}, ${step.right}`;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 600);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        
+        window.onload = reset;
+    </script>
+</body>
+</html>

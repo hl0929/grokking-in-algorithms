@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>两数之和 II 算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .num-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .num-card.active {
+            transform: translateY(-8px);
+            border-color: #3b82f6;
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+        }
+        .num-card.match {
+            background-color: #10b981;
+            color: white;
+            border-color: #059669;
+        }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .pointer-arrow {
+            transition: all 0.4s ease;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">两数之和 II (双指针)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 167. Two Sum II - Input Array Is Sorted</p>
+                </div>
+            </div>
+            
+            <!-- Test Cases -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                <button onclick="setTestCase([2, 3, 5], 6, this)" class="px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm active-case">Case 1: [2,3,5], T=6</button>
+                <button onclick="setTestCase([2, 7, 11, 15], 9, this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 2: [2,7,11,15], T=9</button>
+                <button onclick="setTestCase([-1, 0, 3, 5, 9, 12], 9, this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 3: Large</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md">播放</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Main Content -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-6 overflow-hidden">
+                <!-- Status Row -->
+                <div class="flex justify-center gap-4 mb-8">
+                    <div class="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Target</div>
+                        <div id="display-target" class="text-3xl font-black text-slate-800">6</div>
+                    </div>
+                    <div class="flex items-center text-2xl font-bold text-slate-300">=</div>
+                    <div id="sum-box" class="bg-white px-6 py-3 rounded-2xl border-2 border-slate-100 shadow-sm text-center transition-all duration-300">
+                        <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Current Sum</div>
+                        <div id="display-sum" class="text-3xl font-black text-blue-600">0</div>
+                    </div>
+                </div>
+
+                <!-- Array Visualization Area -->
+                <div id="array-container" class="flex-1 flex flex-col items-center justify-center p-4 relative">
+                    <!-- Numbers will be injected here -->
+                    <div id="numbers-list" class="flex gap-3 sm:gap-4 flex-wrap justify-center"></div>
+                    
+                    <!-- SVG Overlay for Pointers -->
+                    <div class="absolute inset-0 pointer-events-none">
+                        <svg id="pointer-svg" width="100%" height="100%" class="overflow-visible">
+                            <!-- Arrows will be drawn here -->
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="mt-4 bg-slate-900 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-indigo-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">INIT</span>
+                        <span id="step-title" class="font-bold text-white italic">双指针初始化</span>
+                    </div>
+                    <p id="step-detail">在有序数组两端建立指针。左指针指向最小值，右指针指向最大值。</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Two Sum Logic</span>
+                    <span class="text-[9px] text-slate-600 italic">O(N) Time | O(1) Space</span>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">left, right = 0, len(numbers) - 1</div>
+                    <div id="L2" class="code-line mt-2">while left < right:</div>
+                    <div id="L3" class="code-line ml-4">total = numbers[left] + numbers[right]</div>
+                    <div id="L4" class="code-line ml-4">if total == target:</div>
+                    <div id="L5" class="code-line ml-8 font-semibold text-emerald-400">return [left + 1, right + 1]</div>
+                    <div id="L6" class="code-line ml-4">elif total > target:</div>
+                    <div id="L7" class="code-line ml-8 text-blue-400">right -= 1</div>
+                    <div id="L8" class="code-line ml-4">else:</div>
+                    <div id="L9" class="code-line ml-8 text-blue-400">left += 1</div>
+                </div>
+                
+                <div class="px-4 py-3 bg-black/30 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="current-ptr">L: 0, R: 0</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let numbers = [2, 3, 5];
+        let target = 6;
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function setTestCase(newNums, newTarget, btn) {
+            document.querySelectorAll('.active-case').forEach(el => el.classList.remove('active-case', 'bg-white', 'shadow-sm'));
+            btn.classList.add('active-case', 'bg-white', 'shadow-sm');
+            numbers = newNums;
+            target = newTarget;
+            reset();
+        }
+
+        function generateSteps() {
+            const resSteps = [];
+            let left = 0;
+            let right = numbers.length - 1;
+
+            // Step 1: Init
+            resSteps.push({
+                left, right, total: null, line: 'L1',
+                title: "初始化指针", 
+                detail: `左指针指向 index 0 (${numbers[left]})，右指针指向 index ${right} (${numbers[right]})。`
+            });
+
+            while (left < right) {
+                const total = numbers[left] + numbers[right];
+                
+                // Step: Calc Sum
+                resSteps.push({
+                    left, right, total, line: 'L3',
+                    title: "计算当前和",
+                    detail: `${numbers[left]} + ${numbers[right]} = ${total}。`
+                });
+
+                if (total === target) {
+                    resSteps.push({
+                        left, right, total, line: 'L5', matched: true,
+                        title: "找到目标值！",
+                        detail: `当前和 ${total} 等于目标值 ${target}。返回 [${left+1}, ${right+1}]。`
+                    });
+                    break;
+                } else if (total > target) {
+                    const prevRight = right;
+                    right--;
+                    resSteps.push({
+                        left, right, total, line: 'L7',
+                        title: "当前和过大",
+                        detail: `${total} > ${target}。由于数组有序，我们需要更小的数，因此将右指针左移。`
+                    });
+                } else {
+                    const prevLeft = left;
+                    left++;
+                    resSteps.push({
+                        left, right, total, line: 'L9',
+                        title: "当前和过小",
+                        detail: `${total} < ${target}。由于数组有序，我们需要更大的数，因此将左指针右移。`
+                    });
+                }
+            }
+            return resSteps;
+        }
+
+        function reset() {
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            document.getElementById('display-target').innerText = target;
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const list = document.getElementById('numbers-list');
+            
+            // Render Cards
+            list.innerHTML = numbers.map((num, i) => {
+                const isL = step.left === i;
+                const isR = step.right === i;
+                const isMatched = step.matched && (isL || isR);
+                
+                let cardClass = "num-card w-14 h-20 sm:w-16 sm:h-24 bg-white border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center relative ";
+                if (isL || isR) cardClass += "active border-blue-500 ring-4 ring-blue-500/10 ";
+                if (isMatched) cardClass += "match ";
+
+                return `
+                    <div id="card-${i}" class="${cardClass}">
+                        <span class="text-[9px] font-bold text-slate-400 absolute top-2">idx ${i}</span>
+                        <span class="text-xl sm:text-2xl font-black">${num}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Pointer Update
+            document.getElementById('current-ptr').innerText = `L: ${step.left}, R: ${step.right}`;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+            
+            // Sum Update
+            const sumBox = document.getElementById('sum-box');
+            const sumText = document.getElementById('display-sum');
+            if (step.total === null) {
+                sumText.innerText = "-";
+                sumBox.className = "bg-white px-6 py-3 rounded-2xl border-2 border-slate-100 shadow-sm text-center";
+            } else {
+                sumText.innerText = step.total;
+                if (step.total === target) {
+                    sumBox.className = "bg-emerald-50 px-6 py-3 rounded-2xl border-2 border-emerald-500 shadow-md text-center scale-110";
+                    sumText.className = "text-3xl font-black text-emerald-600";
+                } else {
+                    sumBox.className = "bg-white px-6 py-3 rounded-2xl border-2 border-blue-100 shadow-sm text-center";
+                    sumText.className = "text-3xl font-black text-blue-600";
+                }
+            }
+
+            // Text Info
+            document.getElementById('step-tag').innerText = `Step ${currentStep}`;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+
+            // Code Highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+
+            // Arrows Logic (Wait for DOM render)
+            setTimeout(drawPointers, 50);
+        }
+
+        function drawPointers() {
+            const step = steps[currentStep];
+            const svg = document.getElementById('pointer-svg');
+            const container = document.getElementById('array-container').getBoundingClientRect();
+            
+            const lCard = document.getElementById(`card-${step.left}`).getBoundingClientRect();
+            const rCard = document.getElementById(`card-${step.right}`).getBoundingClientRect();
+
+            const lx = lCard.left + lCard.width / 2 - container.left;
+            const rx = rCard.left + rCard.width / 2 - container.left;
+            const y = lCard.bottom - container.top + 10;
+
+            svg.innerHTML = `
+                <g class="pointer-arrow">
+                    <path d="M${lx} ${y+30} L${lx} ${y+5}" stroke="#3b82f6" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+                    <text x="${lx}" y="${y+45}" text-anchor="middle" class="fill-blue-600 font-black text-[10px]">LEFT</text>
+                </g>
+                <g class="pointer-arrow">
+                    <path d="M${rx} ${y+30} L${rx} ${y+5}" stroke="#6366f1" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+                    <text x="${rx}" y="${y+45}" text-anchor="middle" class="fill-indigo-600 font-black text-[10px]">RIGHT</text>
+                </g>
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                    </marker>
+                </defs>
+            `;
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        
+        window.addEventListener('resize', drawPointers);
+        window.onload = reset;
+    </script>
+</body>
+</html>

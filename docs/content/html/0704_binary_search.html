@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二分查找算法可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .num-card {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .num-card.inactive {
+            opacity: 0.3;
+            transform: scale(0.9);
+            filter: grayscale(1);
+        }
+        .num-card.mid-active {
+            border-color: #f59e0b;
+            background-color: #fef3c7;
+            transform: translateY(-8px);
+            z-index: 20;
+        }
+        .num-card.target-found {
+            background-color: #10b981;
+            border-color: #059669;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .pointer-label {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">二分查找 (Binary Search)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 704. Binary Search</p>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 bg-slate-100 px-4 py-1.5 rounded-lg">
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] font-bold text-slate-400">TARGET:</span>
+                        <input type="number" id="input-target" value="9" class="w-10 bg-transparent border-none text-sm font-black text-blue-600 focus:ring-0">
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <button id="btn-play" class="bg-blue-600 text-white px-5 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-colors">播放</button>
+                    <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Visual Area -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-4 sm:p-8 overflow-hidden">
+                <!-- Data Display -->
+                <div class="grid grid-cols-4 gap-4 mb-10">
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">Left 指针</div>
+                        <div id="val-left" class="text-xl font-black text-blue-500">-</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">Mid 索引</div>
+                        <div id="val-mid" class="text-xl font-black text-amber-500">-</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">Right 指针</div>
+                        <div id="val-right" class="text-xl font-black text-indigo-500">-</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-center">
+                        <div class="text-[9px] text-slate-400 font-black uppercase">比较结果</div>
+                        <div id="val-compare" class="text-sm font-bold text-slate-700 mt-1 italic">-</div>
+                    </div>
+                </div>
+
+                <!-- Array Visualization -->
+                <div id="array-container" class="flex-1 flex flex-col items-center justify-center relative bg-white/50 border-2 border-dashed border-slate-200 rounded-3xl p-4">
+                    <div id="numbers-list" class="flex gap-2 sm:gap-4 flex-wrap justify-center items-center h-48 w-full">
+                        <!-- Cards injected here -->
+                    </div>
+                    
+                    <!-- SVG Overlay for pointers -->
+                    <div class="absolute inset-0 pointer-events-none">
+                        <svg id="pointer-svg" width="100%" height="100%" class="overflow-visible"></svg>
+                    </div>
+                </div>
+
+                <!-- Explanation -->
+                <div class="mt-6 bg-slate-900 rounded-xl p-5 text-slate-300 text-xs leading-relaxed border-l-4 border-blue-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="step-tag" class="px-2 py-0.5 bg-blue-500 text-white text-[9px] font-black rounded uppercase">LOG</span>
+                        <span id="step-title" class="font-bold text-white italic text-sm">搜索状态</span>
+                    </div>
+                    <p id="step-detail">准备搜索。由于数组已排序，我们可以通过每次排除一半的元素来快速锁定目标。</p>
+                </div>
+            </div>
+
+            <!-- Code Sidebar -->
+            <div id="sidebar" class="hidden lg:flex w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Binary Search Logic</span>
+                    <span class="text-[9px] text-slate-600 italic">O(log N) Time</span>
+                </div>
+                
+                <div class="flex-1 py-6 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">def search(nums, target):</div>
+                    <div id="L2" class="code-line ml-4">left, right = 0, len(nums) - 1</div>
+                    <div id="L3" class="code-line ml-4 mt-1">while left <= right:</div>
+                    <div id="L4" class="code-line ml-8 active-row">mid = (left + right) // 2</div>
+                    <div id="L5" class="code-line ml-8">if nums[mid] == target:</div>
+                    <div id="L6" class="code-line ml-12">return mid</div>
+                    <div id="L7" class="code-line ml-8">if nums[mid] > target:</div>
+                    <div id="L8" class="code-line ml-12">right = mid - 1</div>
+                    <div id="L9" class="code-line ml-8">else:</div>
+                    <div id="L10" class="code-line ml-12">left = mid + 1</div>
+                    <div id="L11" class="code-line ml-4 mt-1">return -1</div>
+                </div>
+
+                <div class="p-6 bg-black/20 border-t border-slate-800">
+                    <h3 class="text-slate-400 text-[10px] font-black uppercase mb-3">算法要点</h3>
+                    <div class="space-y-3">
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-blue-400 font-bold">1.</span>
+                            <span class="text-slate-500">前提：数组必须是有序的。</span>
+                        </div>
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-blue-400 font-bold">2.</span>
+                            <span class="text-slate-500">核心：通过 mid 将搜索范围减半。</span>
+                        </div>
+                        <div class="flex gap-2 text-[11px]">
+                            <span class="text-blue-400 font-bold">3.</span>
+                            <span class="text-slate-500">停止：找到目标或 left > right。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nums = [-1, 0, 3, 5, 9, 12];
+        let target = 9;
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function generateSteps() {
+            const resSteps = [];
+            let left = 0;
+            let right = nums.length - 1;
+            
+            resSteps.push({
+                left, right, mid: null, line: "L2",
+                title: "初始化", detail: `设置 left = 0, right = ${right}。搜索范围涵盖整个数组。`
+            });
+
+            while (left <= right) {
+                resSteps.push({
+                    left, right, mid: null, line: "L3",
+                    title: "循环检查", detail: `当前 left(${left}) <= right(${right})，继续搜索。`
+                });
+
+                let mid = Math.floor((left + right) / 2);
+                resSteps.push({
+                    left, right, mid, line: "L4",
+                    title: "计算中间索引", detail: `计算 mid = (${left} + ${right}) // 2 = ${mid}。查看该处数值。`
+                });
+
+                if (nums[mid] === target) {
+                    resSteps.push({
+                        left, right, mid, line: "L6", found: true,
+                        title: "找到目标！", detail: `nums[${mid}] 正好等于 ${target}。搜索成功！`
+                    });
+                    return resSteps;
+                }
+
+                if (nums[mid] > target) {
+                    const oldRight = right;
+                    right = mid - 1;
+                    resSteps.push({
+                        left, right, mid, line: "L8",
+                        title: "目标在左侧", detail: `nums[${mid}](${nums[mid]}) > ${target}。排除右侧区间，设置 right = mid - 1 = ${right}。`
+                    });
+                } else {
+                    const oldLeft = left;
+                    left = mid + 1;
+                    resSteps.push({
+                        left, right, mid, line: "L10",
+                        title: "目标在右侧", detail: `nums[${mid}](${nums[mid]}) < ${target}。排除左侧区间，设置 left = mid + 1 = ${left}。`
+                    });
+                }
+            }
+
+            resSteps.push({
+                left, right, mid: null, line: "L11", found: false,
+                title: "未找到目标", detail: `left 已超过 right，数组中不存在目标值 ${target}。`
+            });
+
+            return resSteps;
+        }
+
+        function reset() {
+            target = parseInt(document.getElementById('input-target').value);
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const list = document.getElementById('numbers-list');
+            
+            list.innerHTML = nums.map((num, i) => {
+                const isActive = i >= step.left && i <= step.right;
+                const isMid = i === step.mid;
+                const isFound = step.found && isMid;
+                
+                let cardClass = "num-card w-12 h-16 sm:w-16 sm:h-24 bg-white border-2 border-slate-200 rounded-xl flex flex-col items-center justify-center relative shadow-sm ";
+                if (!isActive) cardClass += "inactive ";
+                if (isMid) cardClass += "mid-active ";
+                if (isFound) cardClass += "target-found ";
+
+                return `
+                    <div id="card-${i}" class="${cardClass}">
+                        <span class="text-[8px] font-bold text-slate-400 absolute top-1">idx ${i}</span>
+                        <span class="text-xl font-black">${num}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Data Update
+            document.getElementById('val-left').innerText = step.left;
+            document.getElementById('val-right').innerText = step.right;
+            document.getElementById('val-mid').innerText = step.mid !== null ? step.mid : "-";
+            
+            let cmp = "-";
+            if (step.mid !== null) {
+                if (nums[step.mid] === target) cmp = "相等！";
+                else if (nums[step.mid] > target) cmp = `${nums[step.mid]} > ${target}`;
+                else cmp = `${nums[step.mid]} < ${target}`;
+            }
+            document.getElementById('val-compare').innerText = cmp;
+
+            // Info text
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-tag').innerText = step.found ? "SUCCESS" : "STEP " + currentStep;
+
+            // Code highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+
+            drawPointers();
+        }
+
+        function drawPointers() {
+            const step = steps[currentStep];
+            const svg = document.getElementById('pointer-svg');
+            const container = document.getElementById('array-container').getBoundingClientRect();
+            
+            svg.innerHTML = '';
+            
+            const drawLabel = (idx, label, color, offset) => {
+                const card = document.getElementById(`card-${idx}`);
+                if (!card) return;
+                const rect = card.getBoundingClientRect();
+                const x = rect.left + rect.width / 2 - container.left;
+                const y = rect.top - container.top - 10;
+                
+                svg.innerHTML += `
+                    <g class="pointer-label">
+                        <path d="M${x} ${y-30} L${x} ${y-5}" stroke="${color}" stroke-width="2" fill="none" marker-end="url(#arrowhead-${label})" />
+                        <text x="${x}" y="${y-35}" text-anchor="middle" fill="${color}" class="font-black text-[9px]">${label.toUpperCase()}</text>
+                        <defs>
+                            <marker id="arrowhead-${label}" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="${color}" />
+                            </marker>
+                        </defs>
+                    </g>
+                `;
+            };
+
+            if (step.left <= nums.length - 1) drawLabel(step.left, 'left', '#3b82f6');
+            if (step.right >= 0 && step.right >= step.left) drawLabel(step.right, 'right', '#6366f1');
+            if (step.mid !== null) drawLabel(step.mid, 'mid', '#f59e0b');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重新开始";
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        document.getElementById('input-target').onchange = reset;
+
+        window.addEventListener('resize', drawPointers);
+        window.onload = reset;
+    </script>
+</body>
+</html>

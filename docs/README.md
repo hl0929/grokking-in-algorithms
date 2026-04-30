@@ -9,6 +9,8 @@
 
 [0004. 寻找两个正序数组的中位数](./content/0004_median_of_two_sorted_arrays.md)
 
+[0010. 正则表达式匹配](./content/0010_regular_expression_matching.md)
+
 [0011. 盛最多水的容器](./content/0011_container_with_most_water.md)
 
 [0014. 最长公共前缀](./content/0014_longest_common_prefix.md)
@@ -30,6 +32,8 @@
 [0033. 搜索旋转排序数组](./content/0033_search_in_rotated_sorted_array.md)
 
 [0034. 在排序数组中查找元素的第一个和最后一个位置](./content/0034_find_first_and_last_position_of_element_in_sorted_array.md)
+
+[0042. 接雨水](./content/0042_trapping_rain_water.md)
 
 [0049. 字母异位词分组](./content/0049_group_anagrams.md)
 
@@ -73,6 +77,10 @@
 
 [0160. 相交链表](./content/0160_intersection_of_two_linked_lists.md)
 
+[0167. 两数之和II-输入有序数组](./content/0167_two_sum_ii_input_array_is_sorted.md)
+
+[0189. 轮转数组](./content/0189_rotate_array.md)
+
 [0198. 打家劫舍](./content/0198_house_robber.md)
 
 [0202. 快乐数](./content/0202_happy_number.md)
@@ -90,6 +98,8 @@
 [0283. 移动零](./content/0283_move_zeroes.md)
 
 [0287. 寻找重复数](./content/0287_find_the_duplicate_number.md)
+
+[0292. Nim 游戏](./content/0292_nim_game.md)
 
 [0322. 零钱兑换](./content/0322_coin_change.md)
 
@@ -111,9 +121,13 @@
 
 [0567. 字符串的排列](./content/0567_permutation_in_string.md)
 
+[0704. 二分查找](./content/0704_binary_search.md)
+
 [0739. 每日温度](./content/0739_daily_temperatures.md)
 
 [0876. 链表的中间结点](./content/0876_middle_of_the_linked_list.md)
+
+[0912. 排序数组](./content/0912_sort_an_array.md)
 
 [0974. 和可被K整除的子数组](./content/0974_subarrays_sums_divisible_by_k.md)
 

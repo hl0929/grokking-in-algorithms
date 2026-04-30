@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正则表达式匹配可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .dp-cell {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .dp-cell.active {
+            background-color: #3b82f6;
+            color: white;
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .dp-cell.dependency {
+            background-color: #dbeafe;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+        .dp-cell.true-val { color: #10b981; font-weight: bold; }
+        .dp-cell.false-val { color: #ef4444; opacity: 0.5; }
+
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 确保表格在小屏幕上也能居中且不被溢出遮挡 */
+        #dp-table-container table {
+            margin: auto;
+            border-spacing: 2px;
+            border-collapse: separate;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-7xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-4 py-3 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-bold text-lg leading-tight">正则表达式匹配 (DP)</h1>
+                    <p class="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">LeetCode 10. Regular Expression Matching</p>
+                </div>
+            </div>
+            
+            <!-- Test Cases -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                <button onclick="setTestCase('abab', '.*', this)" class="px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm active-case">Case 1: abab / .*</button>
+                <button onclick="setTestCase('aa', 'a*', this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 2: aa / a*</button>
+                <button onclick="setTestCase('aab', 'c*a*b', this)" class="px-3 py-1 text-[10px] font-bold rounded-md hover:bg-white transition-all">Case 3: aab / c*a*b</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 shadow-md">播放</button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            <!-- Main Content: DP Table -->
+            <div class="flex-1 flex flex-col bg-slate-50/50 p-2 sm:p-4 overflow-hidden">
+                <div class="mb-4 flex justify-center items-center gap-4">
+                    <div id="str-s-display" class="flex gap-1"></div>
+                    <div class="text-slate-300 font-light mx-1">匹配</div>
+                    <div id="str-p-display" class="flex gap-1"></div>
+                </div>
+
+                <!-- 优化容器：允许滚动并确保居中 -->
+                <div id="dp-table-container" class="flex-1 flex items-start justify-center overflow-auto no-scrollbar py-2">
+                    <!-- DP Grid will be injected here -->
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="mt-4 bg-slate-900 rounded-xl p-4 text-slate-300 text-xs leading-relaxed border-l-4 border-indigo-500 shadow-xl shrink-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="step-tag" class="px-1.5 py-0.5 bg-indigo-500 text-white text-[9px] font-black rounded uppercase">INIT</span>
+                        <span id="step-title" class="font-bold text-white italic">状态解释</span>
+                    </div>
+                    <p id="step-detail">准备开始动态规划推导过程...</p>
+                </div>
+            </div>
+
+            <!-- Sidebar: Code -->
+            <div id="sidebar" class="hidden md:flex w-72 lg:w-80 bg-slate-900 flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">DP Logic (Python)</span>
+                    <span class="text-[9px] text-slate-600">O(M*N) Time & Space</span>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">dp = [[False] * (n + 1) for _ in range(m + 1)]</div>
+                    <div id="L2" class="code-line">dp[0][0] = True</div>
+                    <div id="L3" class="code-line mt-2 text-indigo-400"># 处理模式 p 的前导 * (匹配空串)</div>
+                    <div id="L4" class="code-line">for j in range(2, n + 1):</div>
+                    <div id="L5" class="code-line ml-4">if p[j-1] == '*': dp[0][j] = dp[0][j-2]</div>
+                    
+                    <div id="L6" class="code-line mt-4 text-indigo-400"># 填充 DP 矩阵</div>
+                    <div id="L7" class="code-line">for i in range(1, m + 1):</div>
+                    <div id="L8" class="code-line ml-4">for j in range(1, n + 1):</div>
+                    <div id="L9" class="code-line ml-8">if p[j-1] == '*':</div>
+                    <div id="L10" class="code-line ml-12"># 匹配0个 (跳过 x*)</div>
+                    <div id="L11" class="code-line ml-12 font-semibold">dp[i][j] = dp[i][j-2]</div>
+                    <div id="L12" class="code-line ml-12"># 匹配1个或多个</div>
+                    <div id="L13" class="code-line ml-12">if p[j-2] in {s[i-1], '.'}:</div>
+                    <div id="L14" class="code-line ml-16 font-semibold">dp[i][j] |= dp[i-1][j]</div>
+                    <div id="L15" class="code-line ml-8">else:</div>
+                    <div id="L16" class="code-line ml-12">if p[j-1] in {s[i-1], '.'}:</div>
+                    <div id="L17" class="code-line ml-16 font-semibold">dp[i][j] = dp[i-1][j-1]</div>
+                </div>
+                
+                <div class="px-4 py-3 bg-black/30 text-[10px] text-slate-500 border-t border-slate-800 flex justify-between">
+                    <span id="current-pos">DP[0][0]</span>
+                    <span id="step-counter">0 / 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let s = "abab";
+        let p = ".*";
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function setTestCase(newS, newP, btn) {
+            document.querySelectorAll('.active-case').forEach(el => el.classList.remove('active-case', 'bg-white', 'shadow-sm'));
+            btn.classList.add('active-case', 'bg-white', 'shadow-sm');
+            s = newS;
+            p = newP;
+            reset();
+        }
+
+        function generateSteps() {
+            const m = s.length;
+            const n = p.length;
+            const resSteps = [];
+            const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(null));
+
+            dp[0][0] = true;
+            resSteps.push({
+                i: 0, j: 0, val: true, line: 'L2', 
+                dp: JSON.parse(JSON.stringify(dp)), 
+                title: "基础案例", detail: "空字符串 s 与空模式 p 匹配。"
+            });
+
+            for (let j = 2; j <= n; j++) {
+                if (p[j - 1] === '*') {
+                    dp[0][j] = dp[0][j - 2];
+                    resSteps.push({
+                        i: 0, j: j, val: dp[0][j], line: 'L5',
+                        deps: [[0, j-2]],
+                        dp: JSON.parse(JSON.stringify(dp)),
+                        title: "空串匹配模式", detail: `遇到 '*'，取决于跳过该组合的结果 dp[0][${j-2}]。`
+                    });
+                } else {
+                    dp[0][j] = false;
+                }
+            }
+
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    let currentVal = false;
+                    let currentLine = '';
+                    let currentDeps = [];
+                    let detail = "";
+
+                    if (p[j - 1] === '*') {
+                        const zeroMatch = dp[i][j - 2];
+                        const charMatch = (p[j - 2] === '.' || p[j - 2] === s[i - 1]);
+                        const multiMatch = charMatch ? dp[i - 1][j] : false;
+                        
+                        currentVal = zeroMatch || multiMatch;
+                        currentDeps = [[i, j-2]];
+                        if (charMatch) currentDeps.push([i-1, j]);
+                        
+                        currentLine = charMatch ? 'L14' : 'L11';
+                        detail = `模式为 '*'。尝试跳过 '${p[j-2]}*' (${zeroMatch})` + 
+                                 (charMatch ? ` 或因字符 '${s[i-1]}' 匹配而保留模式 (${multiMatch})。` : "。");
+                    } else {
+                        const match = (p[j - 1] === '.' || p[j - 1] === s[i - 1]);
+                        currentVal = match ? dp[i - 1][j - 1] : false;
+                        currentDeps = [[i - 1, j - 1]];
+                        currentLine = 'L17';
+                        detail = match ? `字符匹配！值取决于对角线 dp[${i-1}][${j-1}]。` : `字符不匹配。`;
+                    }
+
+                    dp[i][j] = currentVal;
+                    resSteps.push({
+                        i, j, val: currentVal, line: currentLine,
+                        deps: currentDeps,
+                        dp: JSON.parse(JSON.stringify(dp)),
+                        title: `处理 s[${i-1}]='${s[i-1]}' 和 p[${j-1}]='${p[j-1]}'`,
+                        detail: detail
+                    });
+                }
+            }
+            return resSteps;
+        }
+
+        function reset() {
+            steps = generateSteps();
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const m = s.length;
+            const n = p.length;
+
+            document.getElementById('str-s-display').innerHTML = s.split('').map((c, idx) => 
+                `<div class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded border-2 ${step.i === idx + 1 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-bold' : 'border-slate-200 text-slate-400'} text-xs">${c}</div>`
+            ).join('');
+            document.getElementById('str-p-display').innerHTML = p.split('').map((c, idx) => 
+                `<div class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded border-2 ${step.j === idx + 1 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-bold' : 'border-slate-200 text-slate-400'} text-xs">${c}</div>`
+            ).join('');
+
+            let html = `<table class="border-collapse">`;
+            html += `<tr><td></td><td class="p-1 text-center font-bold text-slate-300 text-[10px]">φ</td>`;
+            for (let char of p) html += `<td class="p-1 text-center font-bold text-slate-500 text-[10px]">${char}</td>`;
+            html += `</tr>`;
+
+            for (let i = 0; i <= m; i++) {
+                html += `<tr><td class="p-1 text-right font-bold text-slate-500 text-[10px]">${i === 0 ? 'φ' : s[i - 1]}</td>`;
+                for (let j = 0; j <= n; j++) {
+                    const val = step.dp[i][j];
+                    const isActive = step.i === i && step.j === j;
+                    const isDep = step.deps?.some(d => d[0] === i && d[1] === j);
+                    
+                    let cellClass = "dp-cell w-8 h-8 sm:w-10 sm:h-10 border border-slate-200 text-center text-[10px] ";
+                    if (isActive) cellClass += "active ";
+                    else if (isDep) cellClass += "dependency ";
+                    
+                    let valText = "";
+                    if (val === true) valText = "T", cellClass += "true-val ";
+                    if (val === false) valText = "F", cellClass += "false-val ";
+                    
+                    html += `<td class="${cellClass}">${valText}</td>`;
+                }
+                html += `</tr>`;
+            }
+            html += `</table>`;
+            document.getElementById('dp-table-container').innerHTML = html;
+
+            document.getElementById('step-tag').innerText = `I=${step.i}, J=${step.j}`;
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('current-pos').innerText = `DP[${step.i}][${step.j}]`;
+            document.getElementById('step-counter').innerText = `${currentStep + 1} / ${steps.length}`;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重播";
+                    }
+                }, 800);
+            }
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+        
+        window.onload = reset;
+    </script>
+</body>
+</html>
