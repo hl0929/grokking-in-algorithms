@@ -59,6 +59,12 @@
 
 [0085. 最大矩形](./content/0085_maximal_rectangle.md)
 
+[0094. 二叉树的中序遍历](./content/0094_binary_tree_inorder_traversal.md)
+
+[0101. 对称二叉树](./content/0101_symmetric_tree.md)
+
+[0104. 二叉树的最大深度](./content/0104_maximum_depth_of_binary_tree.md)
+
 [0121. 买卖股票的最佳时机](./content/0121_best_time_to_buy_and_sell_stock.md)
 
 [0128. 最长连续序列](./content/0128_longest_consecutive_sequence.md)
@@ -88,6 +94,8 @@
 [0206. 反转链表](./content/0206_reverse_linked_list.md)
 
 [0215. 数组中的第K个最大元素](./content/0215_kth_largest_element_in_an_array.md)
+
+[0226. 反转二叉树](./content/0226_invert_binary_tree.md)
 
 [0234. 回文链表](./content/0234_palindrome_linked_list.md)
 
@@ -119,9 +127,13 @@
 
 [0523. 连续的子数组和](./content/0523_continuous_subarray_sum.md)
 
+[0533. 二叉树的直径](./content/0543_diameter_of_binary_tree.md)
+
 [0560. 和为 K 的子数组](./content/0560_subarray_sum_equals_k.md)
 
 [0567. 字符串的排列](./content/0567_permutation_in_string.md)
+
+[0617. 合并二叉树](./content/0617_merge_two_binary_trees.md)
 
 [0704. 二分查找](./content/0704_binary_search.md)
 

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树原地合并可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; overflow: hidden; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .node {
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 10;
+        }
+        /* 原地修改高亮状态 */
+        .node-active { transform: scale(1.25); box-shadow: 0 0 25px rgba(79, 70, 229, 0.5); border-color: #4f46e5 !important; background-color: #eef2ff !important; }
+        .node-modified { background-color: #10b981 !important; border-color: #059669 !important; color: white !important; }
+        
+        .connector { stroke: #cbd5e1; stroke-width: 2; transition: all 0.5s; fill: none; }
+        .connector-new { stroke: #4f46e5; stroke-width: 3; stroke-dasharray: 5; animation: dash 1.5s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -10; } }
+
+        .code-line {
+            padding: 6px 12px;
+            border-left: 3px solid transparent;
+            font-size: 13px;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .code-line.active {
+            background-color: rgba(79, 70, 229, 0.1);
+            color: #4f46e5;
+            border-left-color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .val-popup {
+            animation: popup 0.6s ease-out forwards;
+            position: absolute;
+            top: -25px;
+            font-weight: bold;
+            color: #10b981;
+        }
+        @keyframes popup {
+            0% { opacity: 0; transform: translateY(10px); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="p-6 h-screen flex flex-col">
+
+    <div class="max-w-[1400px] mx-auto w-full flex flex-col flex-1 bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden">
+        
+        <!-- Top Navigation -->
+        <div class="px-10 py-6 bg-white border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black text-slate-800 tracking-tight">原地合并二叉树</h1>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">In-place modification of Tree 1</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-slate-100/50 p-2.5 rounded-2xl border border-slate-200">
+                <button id="btn-reset" class="p-3 hover:bg-white rounded-xl transition-all text-slate-500 hover:text-indigo-600 hover:shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+                <div class="h-8 w-[1px] bg-slate-300 mx-1"></div>
+                <button id="btn-prev" class="p-3 hover:bg-white rounded-xl text-slate-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                <button id="btn-play" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 text-sm min-w-[100px]">播放</button>
+                <button id="btn-next" class="p-3 hover:bg-white rounded-xl text-slate-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Left: Tree View -->
+            <div class="flex-[3] p-10 flex flex-col gap-10 bg-slate-50/30">
+                
+                <!-- Tree 1 (Target) -->
+                <div class="flex-1 relative bg-white rounded-[2.5rem] border-2 border-indigo-100 shadow-xl shadow-indigo-50/40 p-6 overflow-hidden">
+                    <div class="absolute top-6 left-8 flex items-center gap-3">
+                        <span class="flex h-3 w-3 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        <span class="text-xs font-black text-slate-500 uppercase tracking-widest">Tree 1 (操作主体 - Root1)</span>
+                    </div>
+                    <svg id="svg1" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                    <div id="nodes1" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Tree 2 (Source) -->
+                <div class="h-1/3 relative bg-slate-50/50 rounded-[2.5rem] border border-slate-200 p-6 grayscale-[0.3]">
+                    <div class="absolute top-6 left-8 flex items-center gap-3">
+                        <span class="w-3 h-3 bg-slate-300 rounded-full"></span>
+                        <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Tree 2 (提供合并值与子树)</span>
+                    </div>
+                    <svg id="svg2" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                    <div id="nodes2" class="absolute inset-0"></div>
+                </div>
+
+            </div>
+
+            <!-- Right: Logic & Stats -->
+            <div class="w-[420px] border-l border-slate-100 flex flex-col bg-white">
+                <!-- Code View -->
+                <div class="p-8 border-b border-slate-50 flex-1 overflow-hidden flex flex-col">
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-xs font-black text-slate-400 uppercase tracking-widest">原地修改逻辑 (BFS)</span>
+                        <span id="step-counter" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Step 0</span>
+                    </div>
+                    <div class="code-font flex-1 bg-slate-900 rounded-3xl p-6 text-slate-300 overflow-y-auto shadow-inner">
+                        <div id="L1" class="code-line">def mergeTrees(root1, root2):</div>
+                        <div id="L2" class="code-line ml-3">q = collections.deque([(root1, root2)])</div>
+                        <div id="L3" class="code-line ml-3">while q:</div>
+                        <div id="L4" class="code-line ml-6">n1, n2 = q.popleft()</div>
+                        <div id="L5" class="code-line ml-6 text-emerald-400 font-bold">n1.val += n2.val</div>
+                        <div id="L7" class="code-line ml-6 italic"># 检查左侧</div>
+                        <div id="L8" class="code-line ml-6">if n1.left and n2.left:</div>
+                        <div id="L9" class="code-line ml-9">q.append((n1.left, n2.left))</div>
+                        <div id="L10" class="code-line ml-6 text-indigo-400 font-medium">elif not n1.left and n2.left:</div>
+                        <div id="L11" class="code-line ml-9 text-indigo-400 font-medium underline">n1.left = n2.left</div>
+                        <div id="L13" class="code-line ml-6 italic"># 检查右侧</div>
+                        <div id="L14" class="code-line ml-6">if n1.right and n2.right:</div>
+                        <div id="L15" class="code-line ml-9">q.append((n1.right, n2.right))</div>
+                        <div id="L16" class="code-line ml-6 text-indigo-400 font-medium">elif not n1.right and n2.right:</div>
+                        <div id="L17" class="code-line ml-9 text-indigo-400 font-medium underline">n1.right = n2.right</div>
+                    </div>
+                </div>
+
+                <!-- Footer Status -->
+                <div class="p-8 bg-slate-50/50">
+                    <div id="step-info" class="bg-white p-6 rounded-3xl border border-indigo-100 shadow-sm min-h-[120px] flex flex-col justify-center">
+                        <h4 id="info-title" class="text-indigo-600 font-black text-xs uppercase tracking-widest mb-2">准备开始</h4>
+                        <p id="info-desc" class="text-slate-600 text-sm leading-relaxed">点击播放开始观察 Tree 1 是如何原地被修改的。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const initialT1 = { 
+            id: 't1_1', val: 1, 
+            left: { id: 't1_3', val: 3, left: { id: 't1_5', val: 5, left: null, right: null }, right: null }, 
+            right: { id: 't1_2', val: 2, left: null, right: null } 
+        };
+        const initialT2 = { 
+            id: 't2_1', val: 2, 
+            left: { id: 't2_2', val: 1, left: null, right: { id: 't2_4', val: 4, left: null, right: null } }, 
+            right: { id: 't2_3', val: 3, left: null, right: { id: 't2_7', val: 7, left: null, right: null } } 
+        };
+
+        function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+        // 生成执行轨迹
+        function generateSteps() {
+            let steps = [];
+            let t1 = clone(initialT1);
+            let t2 = clone(initialT2);
+            let q = [{n1: t1, n2: t2}];
+            let modifiedNodes = new Set();
+
+            steps.push({ 
+                line: 'L2', q: clone(q), t1: clone(t1), t2: clone(t2), 
+                active: null, modified: new Set(), title: '初始化', desc: '将 root1 和 root2 入队。我们将直接在 root1 上进行原地操作。' 
+            });
+
+            while(q.length > 0) {
+                steps.push({ line: 'L3', q: clone(q), t1: clone(t1), t2: clone(t2), active: null, modified: new Set(modifiedNodes), title: '循环检查', desc: '队列不为空，取出下一对待合并节点。' });
+                
+                let curr = q.shift();
+                let pair = {id1: curr.n1.id, id2: curr.n2.id};
+                
+                steps.push({ line: 'L4', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '节点出队', desc: `当前考察 Tree1 的节点 (${curr.n1.val}) 和 Tree2 的节点 (${curr.n2.val})。` });
+
+                // 原地修改数值
+                const oldVal = curr.n1.val;
+                curr.n1.val += curr.n2.val;
+                modifiedNodes.add(curr.n1.id);
+                steps.push({ line: 'L5', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '原地累加', desc: `直接在 Tree 1 节点上修改：${oldVal} + ${curr.n2.val} = ${curr.n1.val}。`, popup: `+${curr.n2.val}` });
+
+                // 左侧逻辑
+                steps.push({ line: 'L8', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '检查左侧', desc: '检查左子节点情况。' });
+                if (curr.n1.left && curr.n2.left) {
+                    q.push({n1: curr.n1.left, n2: curr.n2.left});
+                    steps.push({ line: 'L9', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '左侧入队', desc: '双方都有左节点，加入队列。' });
+                } else if (!curr.n1.left && curr.n2.left) {
+                    curr.n1.left = clone(curr.n2.left);
+                    steps.push({ line: 'L11', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '原地挂载左树', desc: 'Tree 1 缺少左节点，直接将 Tree 2 的左子树引用赋值给 Tree 1。' });
+                }
+
+                // 右侧逻辑
+                steps.push({ line: 'L14', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '检查右侧', desc: '检查右子节点情况。' });
+                if (curr.n1.right && curr.n2.right) {
+                    q.push({n1: curr.n1.right, n2: curr.n2.right});
+                    steps.push({ line: 'L15', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '右侧入队', desc: '双方都有右节点，加入队列。' });
+                } else if (!curr.n1.right && curr.n2.right) {
+                    curr.n1.right = clone(curr.n2.right);
+                    steps.push({ line: 'L17', q: clone(q), t1: clone(t1), t2: clone(t2), active: pair, modified: new Set(modifiedNodes), title: '原地挂载右树', desc: 'Tree 1 缺少右节点，直接将 Tree 2 的右子树引用赋值给 Tree 1。' });
+                }
+            }
+            steps.push({ line: null, q: [], t1: clone(t1), t2: clone(t2), active: null, modified: new Set(modifiedNodes), title: '完成', desc: '合并结束，Tree 1 已经是最终结果。' });
+            return steps;
+        }
+
+        const allSteps = generateSteps();
+        let stepIdx = 0;
+        let playTimer = null;
+
+        function drawTree(svgId, nodesId, root, activeId, modifiedSet, isTarget = true) {
+            const svg = document.getElementById(svgId);
+            const container = document.getElementById(nodesId);
+            svg.innerHTML = '';
+            container.innerHTML = '';
+
+            const layout = {};
+            function calcPos(node, x, y, dx, level) {
+                if (!node) return;
+                layout[node.id] = { x, y };
+                calcPos(node.left, x - dx, y + (isTarget ? 70 : 50), dx * 0.5, level + 1);
+                calcPos(node.right, x + dx, y + (isTarget ? 70 : 50), dx * 0.5, level + 1);
+            }
+            calcPos(root, 50, 40, 20, 0);
+
+            function render(node) {
+                if (!node) return;
+                const pos = layout[node.id];
+                const isActive = activeId === node.id;
+                const isModified = modifiedSet && modifiedSet.has(node.id);
+
+                if (node.left && layout[node.left.id]) {
+                    const lPos = layout[node.left.id];
+                    const isNewLink = isTarget && node.left.id.includes('t2_');
+                    svg.innerHTML += `<line x1="${pos.x}%" y1="${pos.y}" x2="${lPos.x}%" y2="${lPos.y}" class="connector ${isNewLink ? 'connector-new' : ''}" />`;
+                    render(node.left);
+                }
+                if (node.right && layout[node.right.id]) {
+                    const rPos = layout[node.right.id];
+                    const isNewLink = isTarget && node.right.id.includes('t2_');
+                    svg.innerHTML += `<line x1="${pos.x}%" y1="${pos.y}" x2="${rPos.x}%" y2="${rPos.y}" class="connector ${isNewLink ? 'connector-new' : ''}" />`;
+                    render(node.right);
+                }
+
+                let cls = "node absolute w-10 h-10 rounded-full border-2 bg-white flex items-center justify-center font-bold shadow-md ";
+                if (isActive) cls += "node-active z-30 ";
+                else if (isModified && isTarget) cls += "node-modified ";
+                else cls += "border-slate-200 text-slate-600 ";
+
+                container.innerHTML += `
+                    <div class="${cls}" style="left:calc(${pos.x}% - 20px); top:${pos.y - 20}px">
+                        ${node.val}
+                        ${isActive && isTarget && allSteps[stepIdx].popup ? `<div class="val-popup">${allSteps[stepIdx].popup}</div>` : ''}
+                    </div>`;
+            }
+            render(root);
+        }
+
+        function syncUI() {
+            const s = allSteps[stepIdx];
+            drawTree('svg1', 'nodes1', s.t1, s.active ? s.active.id1 : null, s.modified, true);
+            drawTree('svg2', 'nodes2', s.t2, s.active ? s.active.id2 : null, null, false);
+
+            document.getElementById('step-counter').innerText = `Step ${stepIdx}`;
+            document.getElementById('info-title').innerText = s.title;
+            document.getElementById('info-desc').innerText = s.desc;
+
+            document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+            if(s.line) document.getElementById(s.line).classList.add('active');
+        }
+
+        document.getElementById('btn-next').onclick = () => { if(stepIdx < allSteps.length - 1) { stepIdx++; syncUI(); } };
+        document.getElementById('btn-prev').onclick = () => { if(stepIdx > 0) { stepIdx--; syncUI(); } };
+        document.getElementById('btn-reset').onclick = () => { stepIdx = 0; syncUI(); };
+        document.getElementById('btn-play').onclick = () => {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                document.getElementById('btn-play').innerText = "继续";
+            } else {
+                if(stepIdx === allSteps.length - 1) stepIdx = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                playTimer = setInterval(() => {
+                    if (stepIdx < allSteps.length - 1) { stepIdx++; syncUI(); }
+                    else { clearInterval(playTimer); playTimer = null; document.getElementById('btn-play').innerText = "重播"; }
+                }, 1000);
+            }
+        };
+
+        syncUI();
+    </script>
+</body>
+</html>

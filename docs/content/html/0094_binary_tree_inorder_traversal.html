@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树中序遍历可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; background-color: #f8fafc; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .tree-node {
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 20;
+        }
+        .node-visited { background-color: #10b981; border-color: #059669; color: white; }
+        .node-curr { 
+            background-color: #3b82f6; 
+            border-color: #2563eb; 
+            color: white; 
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.5); 
+            transform: scale(1.25); 
+            z-index: 30;
+        }
+        .node-in-stack { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; }
+        
+        .stack-item {
+            transition: all 0.4s ease;
+            animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #94a3b8;
+            transition: all 0.2s ease;
+            line-height: 1.4;
+        }
+        .code-line.active {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        .pointer-tag {
+            position: absolute;
+            transform: translate(-50%, -150%);
+            background: #3b82f6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .pointer-tag::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-[1600px] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[95vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-extrabold text-lg tracking-tight">中序遍历可视化</h1>
+                    <p class="text-slate-400 text-[10px] uppercase tracking-widest font-bold">迭代实现优化版</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <select id="case-select" class="bg-slate-100 border-none rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer mr-2">
+                    <option value="default">用例 1: 示例树</option>
+                    <option value="complete">用例 2: 完全二叉树</option>
+                    <option value="left-skew">用例 3: 左斜树</option>
+                </select>
+                <button id="btn-reset" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-red-500" title="重启">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button id="btn-play" class="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-black hover:bg-blue-700 transition-all shadow-md">
+                    播放
+                </button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 核心展示区域 (放大) -->
+            <div class="flex-[4] flex flex-col bg-[#fcfdfe] p-4 sm:p-6 overflow-hidden">
+                <div class="flex flex-1 gap-6 min-h-0">
+                    <!-- Tree Canvas (主要焦点) -->
+                    <div class="flex-[3.5] relative bg-white border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center overflow-hidden">
+                        <div id="tree-container" class="w-full h-full relative">
+                            <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none opacity-40"></svg>
+                            <div id="tree-nodes" class="absolute inset-0 w-full h-full"></div>
+                        </div>
+                        
+                        <div class="absolute bottom-4 left-6 flex gap-4 bg-white/80 backdrop-blur-sm p-2 rounded-lg border border-slate-50">
+                            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span class="text-[9px] font-bold text-slate-400 uppercase">指针</span></div>
+                            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div><span class="text-[9px] font-bold text-slate-400 uppercase">在栈</span></div>
+                            <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span class="text-[9px] font-bold text-slate-400 uppercase">已访</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Stack Panel (辅助) -->
+                    <div class="flex-1 flex flex-col bg-slate-900 rounded-[2rem] p-4 shadow-xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-4 px-1">
+                            <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">辅助栈 (STACK)</h3>
+                            <span id="stack-count" class="text-[9px] font-mono text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">0</span>
+                        </div>
+                        <div id="stack-container" class="flex-1 flex flex-col-reverse gap-2 overflow-y-auto no-scrollbar border-b border-slate-800/50 pb-2">
+                            <!-- Stack items -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 下方结果与说明 (缩小) -->
+                <div class="mt-4 flex gap-4 h-28 shrink-0">
+                    <div class="flex-[1] bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="flex flex-col shrink-0">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">结果序列</span>
+                            <span class="text-[8px] text-blue-500 font-bold tracking-tighter italic">INORDER</span>
+                        </div>
+                        <div id="result-list" class="flex flex-wrap gap-2 overflow-y-auto no-scrollbar py-1"></div>
+                    </div>
+
+                    <div class="flex-[1.5] bg-slate-900 rounded-2xl p-4 border-l-4 border-blue-600 shadow-lg flex flex-col justify-center">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="step-tag" class="px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded uppercase">Step 0</span>
+                            <h4 id="step-title" class="font-bold text-white text-sm">准备就绪</h4>
+                        </div>
+                        <p id="step-detail" class="text-slate-400 text-[11px] leading-snug italic line-clamp-2">初始化并加载测试用例。点击播放开始演示。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 代码边栏 (缩小比例) -->
+            <div id="sidebar" class="hidden xl:flex w-64 bg-[#0f172a] flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800/50">
+                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Python 实现</div>
+                    <div class="text-[8px] text-slate-600 font-medium">迭代法遍历</div>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line opacity-50">def inorder(root):</div>
+                    <div id="L2" class="code-line ml-4">res, stack = [], []</div>
+                    <div id="L3" class="code-line ml-4">curr = root</div>
+                    <div id="L4" class="code-line ml-4 mt-1">while curr or stack:</div>
+                    <div id="L5" class="code-line ml-8">while curr:</div>
+                    <div id="L6" class="code-line ml-12">stack.append(curr)</div>
+                    <div id="L7" class="code-line ml-12">curr = curr.left</div>
+                    <div id="L8" class="code-line ml-8 mt-1">curr = stack.pop()</div>
+                    <div id="L9" class="code-line ml-8 font-bold text-emerald-400">res.append(curr.val)</div>
+                    <div id="L10" class="code-line ml-8">curr = curr.right</div>
+                </div>
+                
+                <div class="p-4 bg-black/20 border-t border-slate-800/50">
+                    <div class="text-[10px] text-slate-500 leading-relaxed font-medium">
+                        栈模拟了递归调用的“回溯”过程。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试用例数据
+        const testCases = {
+            default: {
+                id: '1', val: 1,
+                left: null,
+                right: {
+                    id: '2', val: 2,
+                    left: { id: '3', val: 3, left: null, right: null },
+                    right: null
+                }
+            },
+            complete: {
+                id: '1', val: 1,
+                left: {
+                    id: '2', val: 2,
+                    left: { id: '4', val: 4, left: null, right: null },
+                    right: { id: '5', val: 5, left: null, right: null }
+                },
+                right: {
+                    id: '3', val: 3,
+                    left: { id: '6', val: 6, left: null, right: null },
+                    right: { id: '7', val: 7, left: null, right: null }
+                }
+            },
+            'left-skew': {
+                id: '1', val: 1,
+                left: {
+                    id: '2', val: 2,
+                    left: {
+                        id: '3', val: 3,
+                        left: { id: '4', val: 4, left: null, right: null },
+                        right: null
+                    },
+                    right: null
+                },
+                right: null
+            }
+        };
+
+        let currentTree = testCases.default;
+        const nodeMap = {};
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function generateSteps(root) {
+            const resSteps = [];
+            const stack = [];
+            const result = [];
+            let curr = root;
+
+            resSteps.push({ currId: root.id, stackIds: [], result: [], line: 'L3', title: '初始化', detail: `指针 curr 指向根节点 ${root.val}。` });
+
+            while (curr || stack.length > 0) {
+                resSteps.push({ currId: curr ? curr.id : null, stackIds: stack.map(n => n.id), result: [...result], line: 'L4', title: '主循环判断', detail: curr ? '指针 curr 还有节点，继续向下探查。' : '当前方向已到底，检查栈内回溯点。' });
+                
+                while (curr) {
+                    resSteps.push({ currId: curr.id, stackIds: stack.map(n => n.id), result: [...result], line: 'L6', title: '节点入栈', detail: `将节点 ${curr.val} 压入栈。我们先处理它的左子树。` });
+                    stack.push(curr);
+                    
+                    const nextCurr = curr.left;
+                    resSteps.push({ currId: curr.id, stackIds: stack.map(n => n.id), result: [...result], line: 'L7', title: '探查左子树', detail: `向左移动：curr = curr.left。` });
+                    curr = nextCurr;
+                }
+
+                resSteps.push({ currId: null, stackIds: stack.map(n => n.id), result: [...result], line: 'L8', title: '弹出节点', detail: '左侧探查完毕。从栈顶弹出节点进行访问。' });
+                curr = stack.pop();
+                
+                result.push(curr.val);
+                resSteps.push({ currId: curr.id, stackIds: stack.map(n => n.id), result: [...result], line: 'L9', title: '访问节点', detail: `将节点 ${curr.val} 的值加入结果列表。` });
+                
+                const nextCurr = curr.right;
+                resSteps.push({ currId: curr.id, stackIds: stack.map(n => n.id), result: [...result], line: 'L10', title: '探查右子树', detail: `现在处理右孩子：curr = curr.right。` });
+                curr = nextCurr;
+            }
+
+            resSteps.push({ currId: null, stackIds: [], result: [...result], line: 'L1', title: '遍历结束', detail: '遍历任务圆满完成。' });
+            return resSteps;
+        }
+
+        function drawTree(node, x, y, dx, dy) {
+            if (!node) return;
+            nodeMap[node.id] = { x, y, val: node.val };
+            
+            if (node.left) {
+                const lx = x - dx;
+                const ly = y + dy;
+                document.getElementById('tree-svg').innerHTML += `
+                    <line x1="${x}%" y1="${y}" x2="${lx}%" y2="${ly}" stroke="#e2e8f0" stroke-width="2.5" />
+                `;
+                drawTree(node.left, lx, ly, dx * 0.5, dy);
+            }
+            if (node.right) {
+                const rx = x + dx;
+                const ry = y + dy;
+                document.getElementById('tree-svg').innerHTML += `
+                    <line x1="${x}%" y1="${y}" x2="${rx}%" y2="${ry}" stroke="#e2e8f0" stroke-width="2.5" />
+                `;
+                drawTree(node.right, rx, ry, dx * 0.5, dy);
+            }
+        }
+
+        function reset() {
+            Object.keys(nodeMap).forEach(key => delete nodeMap[key]);
+            steps = generateSteps(currentTree);
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            
+            document.getElementById('tree-svg').innerHTML = '';
+            document.getElementById('tree-nodes').innerHTML = '';
+            
+            // 根据树的深度调整缩放
+            drawTree(currentTree, 50, 60, 22, 90); 
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const nodesContainer = document.getElementById('tree-nodes');
+            const stackContainer = document.getElementById('stack-container');
+            const resultContainer = document.getElementById('result-list');
+
+            // 渲染节点
+            nodesContainer.innerHTML = Object.entries(nodeMap).map(([id, pos]) => {
+                const isCurr = step.currId === id;
+                const inStack = step.stackIds.includes(id);
+                const isVisited = step.result.includes(pos.val) && !inStack && !isCurr;
+                
+                let cls = "tree-node absolute w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center font-black text-sm shadow-sm ";
+                if (isCurr) cls += "node-curr ";
+                else if (inStack) cls += "node-in-stack border-amber-200 ";
+                else if (isVisited) cls += "node-visited ";
+                else cls += "border-slate-50 text-slate-200 ";
+
+                return `
+                    <div class="${cls}" style="left: calc(${pos.x}% - 20px); top: ${pos.y - 20}px">
+                        ${pos.val}
+                        ${isCurr ? '<div class="pointer-tag">CURR</div>' : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // 更新栈
+            document.getElementById('stack-count').innerText = step.stackIds.length;
+            stackContainer.innerHTML = step.stackIds.map(id => {
+                return `<div class="stack-item bg-slate-800 border border-slate-700 text-slate-400 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2">Node ${nodeMap[id].val}</div>`;
+            }).join('');
+
+            // 更新结果
+            resultContainer.innerHTML = step.result.map((val, idx) => {
+                return `
+                    <div class="relative flex-shrink-0">
+                        <div class="w-8 h-8 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg flex items-center justify-center font-black text-xs shadow-sm transform scale-100 transition-transform">
+                            ${val}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-tag').innerText = "STEP " + currentStep;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) {
+                const activeLine = document.getElementById(step.line);
+                activeLine.classList.add('active');
+                activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function play() {
+            if (timer) {
+                clearInterval(timer); timer = null;
+                document.getElementById('btn-play').innerText = "播放";
+            } else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++; render();
+                    } else {
+                        clearInterval(timer); timer = null;
+                        document.getElementById('btn-play').innerText = "重演";
+                    }
+                }, 1200);
+            }
+        }
+
+        document.getElementById('case-select').onchange = (e) => {
+            currentTree = testCases[e.target.value];
+            reset();
+        };
+
+        document.getElementById('btn-reset').onclick = reset;
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+
+        window.onload = reset;
+    </script>
+</body>
+</html>

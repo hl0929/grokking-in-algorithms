@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树最大深度可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; background-color: #f8fafc; }
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .tree-node {
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 20;
+        }
+        .node-active { background-color: #3b82f6; border-color: #2563eb; color: white; transform: scale(1.1); }
+        .node-processed { background-color: #10b981; border-color: #059669; color: white; }
+        .node-queued { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; }
+        
+        .stack-item {
+            transition: all 0.4s ease;
+            animation: slideIn 0.4s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .code-line {
+            padding: 2px 10px;
+            border-left: 3px solid transparent;
+            font-size: 11px;
+            color: #94a3b8;
+            transition: all 0.2s ease;
+            line-height: 1.4;
+        }
+        .code-line.active {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-left-color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-[1600px] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[95vh]">
+        
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-slate-800 font-extrabold text-lg tracking-tight">二叉树最大深度 (BFS)</h1>
+                    <p class="text-slate-400 text-[10px] uppercase tracking-widest font-bold">迭代层序遍历实现</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <select id="case-select" class="bg-slate-100 border-none rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer mr-2">
+                    <option value="target">当前题目: [3,9,20,null,null,15,7]</option>
+                    <option value="complete">用例 2: 四层完全树</option>
+                </select>
+                <button id="btn-reset" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-red-500" title="重启">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+                <button id="btn-prev" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button id="btn-play" class="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-black hover:bg-blue-700 transition-all shadow-md">
+                    播放
+                </button>
+                <button id="btn-next" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 核心展示区域 -->
+            <div class="flex-[4] flex flex-col bg-[#fcfdfe] p-4 sm:p-6 overflow-hidden">
+                <div class="flex flex-1 gap-6 min-h-0">
+                    <!-- Tree Canvas -->
+                    <div class="flex-[3.5] relative bg-white border border-slate-100 rounded-[2rem] shadow-sm flex items-center justify-center overflow-hidden">
+                        <div id="tree-container" class="w-full h-full relative">
+                            <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none opacity-40"></svg>
+                            <div id="tree-nodes" class="absolute inset-0 w-full h-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Queue Panel -->
+                    <div class="flex-1 flex flex-col bg-slate-900 rounded-[2rem] p-4 shadow-xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-4 px-1">
+                            <h3 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">当前队列 (QUEUE)</h3>
+                            <span id="queue-count" class="text-[9px] font-mono text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">0</span>
+                        </div>
+                        <div id="stack-container" class="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar border-b border-slate-800/50 pb-2">
+                            <!-- Queue items -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 下方结果 -->
+                <div class="mt-4 flex gap-4 h-28 shrink-0">
+                    <div class="flex-[1] bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div class="flex flex-col shrink-0">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">最大深度</span>
+                            <span class="text-2xl text-blue-600 font-black" id="depth-display">0</span>
+                        </div>
+                        <div class="h-10 w-px bg-slate-100"></div>
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-black text-slate-400 uppercase">层级状态</span>
+                            <div id="level-indicator" class="flex gap-1 mt-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex-[1.5] bg-slate-900 rounded-2xl p-4 border-l-4 border-blue-600 shadow-lg flex flex-col justify-center">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="step-tag" class="px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded uppercase">Step 0</span>
+                            <h4 id="step-title" class="font-bold text-white text-sm">准备就绪</h4>
+                        </div>
+                        <p id="step-detail" class="text-slate-400 text-[11px] leading-snug italic line-clamp-2">初始化二叉树结构。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 代码边栏 -->
+            <div id="sidebar" class="hidden xl:flex w-72 bg-[#0f172a] flex-col border-l border-slate-800 shrink-0">
+                <div class="p-4 border-b border-slate-800/50">
+                    <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Python 实现</div>
+                    <div class="text-[8px] text-slate-600 font-medium">BFS 迭代求深度</div>
+                </div>
+                
+                <div class="flex-1 py-4 code-font overflow-y-auto no-scrollbar">
+                    <div id="L1" class="code-line">def max_depth(root):</div>
+                    <div id="L2" class="code-line ml-4">if not root: return 0</div>
+                    <div id="L3" class="code-line ml-4">queue = [root]</div>
+                    <div id="L4" class="code-line ml-4">depth = 0</div>
+                    <div id="L5" class="code-line ml-4 mt-1">while queue:</div>
+                    <div id="L6" class="code-line ml-8 font-bold text-blue-400">depth += 1</div>
+                    <div id="L7" class="code-line ml-8">next_level = []</div>
+                    <div id="L8" class="code-line ml-8">for node in queue:</div>
+                    <div id="L9" class="code-line ml-12">if node.left:</div>
+                    <div id="L10" class="code-line ml-16">next_level.append(node.left)</div>
+                    <div id="L11" class="code-line ml-12">if node.right:</div>
+                    <div id="L12" class="code-line ml-16">next_level.append(node.right)</div>
+                    <div id="L13" class="code-line ml-8 mt-1">queue = next_level</div>
+                    <div id="L14" class="code-line ml-4">return depth</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const testCases = {
+            target: {
+                id: '3', val: 3,
+                left: { id: '9', val: 9, left: null, right: null },
+                right: {
+                    id: '20', val: 20,
+                    left: { id: '15', val: 15, left: null, right: null },
+                    right: { id: '7', val: 7, left: null, right: null }
+                }
+            },
+            complete: {
+                id: '1', val: 1,
+                left: {
+                    id: '2', val: 2,
+                    left: { id: '4', val: 4, left: null, right: null },
+                    right: { id: '5', val: 5, left: null, right: null }
+                },
+                right: {
+                    id: '3', val: 3,
+                    left: { id: '6', val: 6, left: null, right: null },
+                    right: { id: '7', val: 7, left: null, right: null }
+                }
+            }
+        };
+
+        let currentTree = testCases.target;
+        const nodeMap = {};
+        let steps = [];
+        let currentStep = 0;
+        let timer = null;
+
+        function generateSteps(root) {
+            const s = [];
+            if (!root) return [{ depth: 0, queueIds: [], activeIds: [], line: 'L2', title: '空树', detail: '根节点为空，深度为0。' }];
+
+            let queue = [root];
+            let depth = 0;
+            let processedIds = [];
+
+            s.push({ depth: 0, queueIds: [root.id], activeIds: [], processedIds: [], line: 'L3', title: '初始化队列', detail: '将根节点 3 加入队列。' });
+
+            while (queue.length > 0) {
+                s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [], processedIds: [...processedIds], line: 'L5', title: '检查队列', detail: `当前队列不为空，继续处理下一层。` });
+                
+                depth++;
+                s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [], processedIds: [...processedIds], line: 'L6', title: '深度增加', detail: `进入第 ${depth} 层，深度加 1。` });
+
+                let nextLevel = [];
+                let currentLevelIds = queue.map(n => n.id);
+
+                for (let node of queue) {
+                    s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [node.id], processedIds: [...processedIds], line: 'L8', title: '处理节点', detail: `正在处理当前层的节点 ${node.val}。` });
+                    
+                    if (node.left) {
+                        nextLevel.push(node.left);
+                        s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [node.id], processedIds: [...processedIds], line: 'L10', title: '左孩子入队', detail: `发现节点 ${node.val} 的左孩子 ${node.left.val}，加入下层待处理列表。` });
+                    }
+                    if (node.right) {
+                        nextLevel.push(node.right);
+                        s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [node.id], processedIds: [...processedIds], line: 'L12', title: '右孩子入队', detail: `发现节点 ${node.val} 的右孩子 ${node.right.val}，加入下层待处理列表。` });
+                    }
+                    processedIds.push(node.id);
+                }
+
+                queue = nextLevel;
+                s.push({ depth: depth, queueIds: queue.map(n => n.id), activeIds: [], processedIds: [...processedIds], line: 'L13', title: '更新队列', detail: `本层处理完毕，队列现在包含下一层的所有节点。` });
+            }
+
+            s.push({ depth: depth, queueIds: [], activeIds: [], processedIds: [...processedIds], line: 'L14', title: '结束', detail: `队列已空，遍历结束。最大深度为 ${depth}。` });
+            return s;
+        }
+
+        function drawTree(node, x, y, dx, dy) {
+            if (!node) return;
+            nodeMap[node.id] = { x, y, val: node.val };
+            
+            if (node.left) {
+                const lx = x - dx; const ly = y + dy;
+                document.getElementById('tree-svg').innerHTML += `<line x1="${x}%" y1="${y}" x2="${lx}%" y2="${ly}" stroke="#e2e8f0" stroke-width="2" />`;
+                drawTree(node.left, lx, ly, dx * 0.5, dy);
+            }
+            if (node.right) {
+                const rx = x + dx; const ry = y + dy;
+                document.getElementById('tree-svg').innerHTML += `<line x1="${x}%" y1="${y}" x2="${rx}%" y2="${ry}" stroke="#e2e8f0" stroke-width="2" />`;
+                drawTree(node.right, rx, ry, dx * 0.5, dy);
+            }
+        }
+
+        function reset() {
+            Object.keys(nodeMap).forEach(key => delete nodeMap[key]);
+            steps = generateSteps(currentTree);
+            currentStep = 0;
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; }
+            document.getElementById('tree-svg').innerHTML = '';
+            document.getElementById('tree-nodes').innerHTML = '';
+            drawTree(currentTree, 50, 60, 22, 100); 
+            render();
+        }
+
+        function render() {
+            const step = steps[currentStep];
+            const nodesContainer = document.getElementById('tree-nodes');
+            const stackContainer = document.getElementById('stack-container');
+
+            nodesContainer.innerHTML = Object.entries(nodeMap).map(([id, pos]) => {
+                const isActive = step.activeIds.includes(id);
+                const inQueue = step.queueIds.includes(id);
+                const isProcessed = step.processedIds.includes(id);
+                
+                let cls = "tree-node absolute w-12 h-12 rounded-full border-4 bg-white flex items-center justify-center font-black text-sm shadow-sm ";
+                if (isActive) cls += "node-active ";
+                else if (inQueue) cls += "node-queued ";
+                else if (isProcessed) cls += "node-processed ";
+                else cls += "border-slate-50 text-slate-300 ";
+
+                return `<div class="${cls}" style="left: calc(${pos.x}% - 24px); top: ${pos.y - 24}px">${pos.val}</div>`;
+            }).join('');
+
+            document.getElementById('queue-count').innerText = step.queueIds.length;
+            stackContainer.innerHTML = step.queueIds.map(id => {
+                return `<div class="stack-item bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold py-2 rounded-xl text-xs flex items-center justify-center">Node ${nodeMap[id].val}</div>`;
+            }).join('');
+
+            document.getElementById('depth-display').innerText = step.depth;
+            const indicator = document.getElementById('level-indicator');
+            indicator.innerHTML = '';
+            for(let i=1; i<=step.depth; i++) {
+                indicator.innerHTML += `<div class="w-3 h-3 rounded-full bg-blue-500"></div>`;
+            }
+
+            document.getElementById('step-title').innerText = step.title;
+            document.getElementById('step-detail').innerText = step.detail;
+            document.getElementById('step-tag').innerText = "STEP " + currentStep;
+
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            if (step.line) document.getElementById(step.line).classList.add('active');
+        }
+
+        function play() {
+            if (timer) { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "播放"; } 
+            else {
+                if (currentStep >= steps.length - 1) currentStep = 0;
+                document.getElementById('btn-play').innerText = "暂停";
+                timer = setInterval(() => {
+                    if (currentStep < steps.length - 1) { currentStep++; render(); } 
+                    else { clearInterval(timer); timer = null; document.getElementById('btn-play').innerText = "重演"; }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('case-select').onchange = (e) => { currentTree = testCases[e.target.value]; reset(); };
+        document.getElementById('btn-reset').onclick = reset;
+        document.getElementById('btn-next').onclick = () => { if(currentStep < steps.length-1) {currentStep++; render();} };
+        document.getElementById('btn-prev').onclick = () => { if(currentStep > 0) {currentStep--; render();} };
+        document.getElementById('btn-play').onclick = play;
+
+        window.onload = reset;
+    </script>
+</body>
+</html>
