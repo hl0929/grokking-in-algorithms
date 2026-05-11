@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树右视图可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .node-transition {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .line-active {
+            background-color: rgba(99, 102, 241, 0.15);
+            color: #818cf8 !important;
+            border-left: 3px solid #6366f1;
+        }
+
+        .queue-item-enter {
+            animation: popIn 0.3s ease-out forwards;
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .right-eye {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0.6;
+        }
+
+        .scan-line {
+            position: absolute;
+            right: 120px;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, #6366f1, transparent);
+            box-shadow: 0 0 15px #6366f1;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen p-4 md:p-8 overflow-hidden bg-slate-50">
+
+    <div class="flex flex-1 gap-8 max-w-7xl mx-auto w-full overflow-hidden">
+        
+        <!-- 左侧：可视化画布 -->
+        <div class="flex-[3] flex flex-col gap-6 overflow-hidden">
+            <div class="bg-white rounded-3xl shadow-xl border border-slate-200 flex-1 relative flex flex-col overflow-hidden">
+                
+                <!-- 顶部控制栏 -->
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-20">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-indigo-600 p-2.5 rounded-xl text-white shadow-lg shadow-indigo-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-black text-slate-800 tracking-tight">Binary Tree Right Side View</h2>
+                            <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-[0.2em]">BFS Layer-by-Layer Scan</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                        <button id="btn-reset" class="p-2.5 text-slate-500 hover:text-indigo-600 transition-colors hover:bg-white rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button id="btn-play" class="h-10 px-5 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-200 active:scale-95">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button id="btn-next" class="p-2.5 text-slate-500 hover:text-indigo-600 transition-colors hover:bg-white rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 画布区域 -->
+                <div class="flex-1 relative bg-white" id="canvas-container">
+                    <div class="scan-line"></div>
+                    <div class="right-eye">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span class="text-[10px] font-bold text-indigo-400 mt-2 uppercase tracking-tighter">Right Viewpoint</span>
+                    </div>
+
+                    <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                    <div id="nodes-container" class="relative z-10 w-full h-full"></div>
+                </div>
+
+                <!-- 变量面板 -->
+                <div class="p-6 grid grid-cols-3 gap-6 border-t border-slate-100 bg-slate-50/50">
+                    <div class="space-y-3">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <span class="w-2 h-2 rounded-full bg-blue-500"></span> Queue (Current)
+                        </span>
+                        <div id="queue-display" class="flex flex-wrap gap-2 min-h-[44px] items-center p-2 bg-white rounded-xl border border-slate-200"></div>
+                    </div>
+                    <div class="space-y-3">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <span class="w-2 h-2 rounded-full bg-amber-500"></span> Part (Level Values)
+                        </span>
+                        <div id="part-display" class="flex flex-wrap gap-2 min-h-[44px] items-center p-2 bg-white rounded-xl border border-slate-200"></div>
+                    </div>
+                    <div class="space-y-3">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Result (Right View)
+                        </span>
+                        <div id="result-display" class="flex flex-wrap gap-2 min-h-[44px] items-center p-2 bg-white rounded-xl border border-slate-200"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：代码面板 -->
+        <div class="w-[420px] bg-[#0f172a] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div class="px-6 py-4 bg-slate-800/50 border-b border-slate-700/50 flex items-center">
+                <span class="text-slate-400 text-xs font-mono">right_side_view.py</span>
+            </div>
+            <div id="code-container" class="flex-1 p-8 font-mono text-[13px] leading-[1.8] overflow-y-auto no-scrollbar">
+                <!-- 代码由 JS 生成 -->
+            </div>
+            <div class="p-6 bg-slate-900 border-t border-slate-800">
+                <div id="step-desc" class="text-slate-300 text-sm leading-relaxed min-h-[60px]">
+                    准备开始层序遍历...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 数据结构: [1,2,3,null,5,null,4]
+        // 1 -> L:2, R:3
+        // 2 -> R:5
+        // 3 -> R:4
+        const treeData = {
+            id: 'n1', val: 1,
+            left: { id: 'n2', val: 2, left: null, right: { id: 'n5', val: 5, left: null, right: null } },
+            right: { id: 'n3', val: 3, left: null, right: { id: 'n4', val: 4, left: null, right: null } }
+        };
+
+        const nodePositions = {
+            'n1': { x: 220, y: 80 },
+            'n2': { x: 140, y: 160 },
+            'n3': { x: 300, y: 160 },
+            'n5': { x: 180, y: 240 },
+            'n4': { x: 340, y: 240 }
+        };
+
+        const codeLines = [
+            "def right_side_view(root):",
+            "    result = []",
+            "    queue = [root]",
+            "    while queue:",
+            "        part = []",
+            "        level_queue = []",
+            "        for node in queue:",
+            "            part.append(node.val)",
+            "            if node.left: level_queue.append(node.left)",
+            "            if node.right: level_queue.append(node.right)",
+            "        result.append(part[-1])",
+            "        queue = level_queue",
+            "    return result"
+        ];
+
+        let steps = [];
+        let currentStep = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generateSteps() {
+            const s = [];
+            const result = [];
+            let queue = [treeData];
+            
+            s.push({ line: 1, res: [], queue: [], part: [], activeNodes: [], desc: "进入函数 right_side_view。" });
+            s.push({ line: 2, res: [], queue: [], part: [], activeNodes: [], desc: "初始化结果列表 result = []" });
+            s.push({ line: 3, res: [], queue: ['n1'], part: [], activeNodes: ['n1'], desc: "根节点入队: queue = [1]" });
+
+            while(queue.length > 0) {
+                s.push({ line: 4, res: [...result], queue: queue.map(n => n.id), part: [], activeNodes: queue.map(n => n.id), desc: `开始处理当前层，队列中有 ${queue.length} 个节点。` });
+                s.push({ line: 5, res: [...result], queue: queue.map(n => n.id), part: [], activeNodes: queue.map(n => n.id), desc: "重置当前层的值列表 part = []" });
+                s.push({ line: 6, res: [...result], queue: queue.map(n => n.id), part: [], activeNodes: queue.map(n => n.id), desc: "重置下一层临时队列 level_queue = []" });
+
+                const part = [];
+                const level_queue = [];
+                
+                for(const node of queue) {
+                    s.push({ line: 7, res: [...result], queue: queue.map(n => n.id), part: [...part], activeNodes: [node.id], desc: `正在遍历节点 ${node.val}` });
+                    part.push(node.val);
+                    s.push({ line: 8, res: [...result], queue: queue.map(n => n.id), part: [...part], activeNodes: [node.id], desc: `将 ${node.val} 加入当前层列表 part` });
+                    
+                    if(node.left) {
+                        level_queue.push(node.left);
+                        s.push({ line: 9, res: [...result], queue: queue.map(n => n.id), part: [...part], activeNodes: [node.id], desc: `发现左子节点 ${node.left.val}，加入 level_queue` });
+                    }
+                    if(node.right) {
+                        level_queue.push(node.right);
+                        s.push({ line: 10, res: [...result], queue: queue.map(n => n.id), part: [...part], activeNodes: [node.id], desc: `发现右子节点 ${node.right.val}，加入 level_queue` });
+                    }
+                }
+
+                const lastVal = part[part.length - 1];
+                result.push(lastVal);
+                s.push({ line: 11, res: [...result], queue: queue.map(n => n.id), part: [...part], activeNodes: [queue[queue.length-1].id], desc: `本层遍历结束，将 part 的最后一个元素 ${lastVal} 加入结果集（它是右视图可见节点）。` });
+                
+                queue = level_queue;
+                s.push({ line: 12, res: [...result], queue: queue.map(n => n.id), part: [], activeNodes: queue.map(n => n.id), desc: "将 level_queue 赋值给 queue，准备处理下一层。" });
+            }
+
+            s.push({ line: 13, res: [...result], queue: [], part: [], activeNodes: [], desc: `所有层处理完毕，返回最终右视图结果: ${JSON.stringify(result)}` });
+            return s;
+        }
+
+        function renderTree() {
+            const svg = document.getElementById('tree-svg');
+            const container = document.getElementById('nodes-container');
+            const step = steps[currentStep];
+            
+            svg.innerHTML = '';
+            container.innerHTML = '';
+
+            const drawLine = (fromId, toId) => {
+                const p1 = nodePositions[fromId];
+                const p2 = nodePositions[toId];
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y);
+                line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
+                line.setAttribute("stroke", "#e2e8f0");
+                line.setAttribute("stroke-width", "2");
+                svg.appendChild(line);
+            };
+
+            drawLine('n1', 'n2'); drawLine('n1', 'n3');
+            drawLine('n2', 'n5'); drawLine('n3', 'n4');
+
+            Object.keys(nodePositions).forEach(id => {
+                const pos = nodePositions[id];
+                const val = parseInt(id.replace('n','')); 
+                // 特殊处理 ID 和值的对应：n1:1, n2:2, n3:3, n4:4, n5:5
+                const nodeVal = [null, 1, 2, 3, 4, 5][val]; 
+
+                const isActive = step.activeNodes.includes(id);
+                const isInResult = step.res.includes(nodeVal);
+                const isInQueue = step.queue.includes(id);
+
+                const el = document.createElement('div');
+                el.className = `absolute w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-500 node-transition
+                    ${isActive ? 'bg-indigo-600 text-white border-indigo-400 scale-125 z-20 shadow-lg shadow-indigo-200' : 
+                      isInResult ? 'bg-emerald-500 text-white border-emerald-400 shadow-md' : 
+                      isInQueue ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-400 border-slate-100'}`;
+                el.style.left = `${pos.x - 24}px`;
+                el.style.top = `${pos.y - 24}px`;
+                el.innerText = nodeVal;
+                container.appendChild(el);
+            });
+        }
+
+        function renderCode() {
+            const container = document.getElementById('code-container');
+            const step = steps[currentStep];
+            container.innerHTML = '';
+
+            codeLines.forEach((text, i) => {
+                const lineNum = i + 1;
+                const isActive = step.line === lineNum;
+                const div = document.createElement('div');
+                div.className = `px-4 py-0.5 rounded transition-all duration-200 ${isActive ? 'line-active text-indigo-400' : 'text-slate-500'}`;
+                div.innerHTML = `<span class="inline-block w-6 text-slate-700 mr-4 text-xs font-mono opacity-50">${lineNum}</span>${text.replace(/ /g, '&nbsp;')}`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderState() {
+            const step = steps[currentStep];
+            
+            // Queue
+            const qBox = document.getElementById('queue-display');
+            qBox.innerHTML = '';
+            step.queue.forEach(id => {
+                const nodeVal = [null, 1, 2, 3, 4, 5][parseInt(id.replace('n',''))];
+                const item = document.createElement('div');
+                item.className = "px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 queue-item-enter";
+                item.innerText = nodeVal;
+                qBox.appendChild(item);
+            });
+
+            // Part
+            const pBox = document.getElementById('part-display');
+            pBox.innerHTML = '';
+            step.part.forEach(val => {
+                const item = document.createElement('div');
+                item.className = "px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-lg border border-amber-200 queue-item-enter";
+                item.innerText = val;
+                pBox.appendChild(item);
+            });
+
+            // Result
+            const rBox = document.getElementById('result-display');
+            rBox.innerHTML = '';
+            step.res.forEach(val => {
+                const item = document.createElement('div');
+                item.className = "px-2.5 py-1 bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm queue-item-enter";
+                item.innerText = val;
+                rBox.appendChild(item);
+            });
+
+            document.getElementById('step-desc').innerText = step.desc;
+        }
+
+        function updateUI() {
+            renderTree();
+            renderCode();
+            renderState();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const icon = document.getElementById('play-icon');
+            if (isPlaying) {
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+                playInterval = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        togglePlay();
+                    }
+                }, 800);
+            } else {
+                icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                clearInterval(playInterval);
+            }
+        }
+
+        window.onload = () => {
+            steps = generateSteps();
+            updateUI();
+
+            document.getElementById('btn-play').onclick = togglePlay;
+            document.getElementById('btn-reset').onclick = () => { 
+                if(isPlaying) togglePlay(); 
+                currentStep = 0; 
+                updateUI(); 
+            };
+            document.getElementById('btn-next').onclick = () => { 
+                if(isPlaying) togglePlay(); 
+                currentStep = Math.min(steps.length - 1, currentStep + 1); 
+                updateUI(); 
+            };
+        };
+    </script>
+</body>
+</html>

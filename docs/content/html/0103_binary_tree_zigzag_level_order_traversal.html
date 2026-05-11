@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树锯齿形层序遍历可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .node-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .line-active {
+            background-color: rgba(99, 102, 241, 0.2);
+            color: #c7d2fe !important;
+            border-left: 2px solid #6366f1;
+        }
+
+        /* 隐藏滚动条但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen p-6 overflow-hidden">
+
+    <div class="flex flex-1 gap-6 max-w-6xl mx-auto w-full overflow-hidden">
+        
+        <!-- 左侧：可视化画布 -->
+        <div class="flex-[3] flex flex-col gap-4 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-1 relative flex flex-col overflow-hidden">
+                
+                <!-- 顶部标题与控制栏 -->
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white z-20">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-800">Zigzag 层序遍历</h2>
+                            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Level: <span id="level-display">0</span></p>
+                        </div>
+                    </div>
+
+                    <!-- 播放控制面板 -->
+                    <div class="flex items-center gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                        <button id="btn-reset" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button id="btn-prev" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></svg>
+                        </button>
+                        <button id="btn-play" class="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-500 transition-all shadow-sm">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button id="btn-next" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 状态描述与进度条 -->
+                <div class="px-4 py-2 bg-indigo-50/50 flex flex-col gap-2 border-b border-slate-100">
+                    <div class="flex items-center gap-2 text-[11px] text-indigo-700 font-medium">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                        <span id="desc-display">初始化：准备遍历</span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="bg-indigo-500 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 画布区域 -->
+                <div class="flex-1 relative" id="canvas-container">
+                    <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                    <div id="nodes-container"></div>
+                </div>
+
+                <!-- 变量面板 -->
+                <div class="p-4 grid grid-cols-2 gap-4 border-t border-slate-100 bg-white">
+                    <div class="space-y-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1">
+                           <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Current Queue
+                        </span>
+                        <div id="queue-display" class="flex gap-1.5 min-h-[28px] flex-wrap"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1">
+                           <div id="part-indicator" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Part Result
+                        </span>
+                        <div id="part-display" class="flex gap-1.5 min-h-[28px] flex-wrap items-center"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：代码面板 -->
+        <div class="w-80 bg-[#0f172a] rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-slate-800">
+            <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <svg class="text-indigo-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <span class="text-slate-300 text-xs font-mono">Algorithm</span>
+                </div>
+                <div class="flex gap-1">
+                    <div class="w-2 h-2 rounded-full bg-red-500/50"></div>
+                    <div class="w-2 h-2 rounded-full bg-amber-500/50"></div>
+                    <div class="w-2 h-2 rounded-full bg-emerald-500/50"></div>
+                </div>
+            </div>
+            <div id="code-container" class="flex-1 p-4 font-mono text-[11px] leading-[1.6] overflow-y-auto no-scrollbar">
+                <!-- 代码行将由 JS 生成 -->
+            </div>
+            <div class="p-4 bg-slate-900/80 border-t border-slate-800">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Final result</span>
+                    <div class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[8px] rounded uppercase font-bold">List of Lists</div>
+                </div>
+                <div id="final-result-display" class="flex flex-col gap-2">
+                    <!-- 结果行将由 JS 生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 数据定义
+        const treeData = {
+            id: 'n3', val: 3,
+            left: { id: 'n9', val: 9, left: null, right: null },
+            right: { 
+                id: 'n20', val: 20, 
+                left: { id: 'n15', val: 15, left: null, right: null },
+                right: { id: 'n7', val: 7, left: null, right: null }
+            }
+        };
+
+        const nodes = [
+            { id: 'n3', x: 200, y: 50, val: 3 },
+            { id: 'n9', x: 100, y: 130, val: 9, parent: 'n3' },
+            { id: 'n20', x: 300, y: 130, val: 20, parent: 'n3' },
+            { id: 'n15', x: 250, y: 210, val: 15, parent: 'n20' },
+            { id: 'n7', x: 350, y: 210, val: 7, parent: 'n20' }
+        ];
+
+        const codeLines = [
+            "def zigzag_level_traversal(root):",
+            "    result = []",
+            "    queue = [root]",
+            "    level = 0",
+            "    while queue:",
+            "        part = []",
+            "        level_queue = []",
+            "        for node in queue:",
+            "            part.append(node.val)",
+            "            if node.left: level_queue.append(node.left)",
+            "            if node.right: level_queue.append(node.right)",
+            "        if level % 2:",
+            "            part.reverse()",
+            "        level += 1",
+            "        result.append(part)",
+            "        queue = level_queue",
+            "    return result"
+        ];
+
+        // 映射代码行到逻辑步骤
+        const lineMap = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27];
+
+        // 2. 状态管理
+        let currentStep = 0;
+        let isPlaying = false;
+        let playInterval = null;
+        let steps = [];
+
+        // 3. 核心算法步骤生成
+        function generateSteps(root) {
+            let s = [];
+            let result = [];
+            let queue = [root];
+            let level = 0;
+
+            s.push({ line: 11, res: [], q: [], lq: [], p: [], lv: 0, act: null, desc: "初始化：result = [], queue = [root], level = 0" });
+
+            while (queue.length > 0) {
+                s.push({ line: 14, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [], p: [], lv: level, act: null, desc: `While 循环：当前第 ${level} 层` });
+                
+                let part = [];
+                let level_queue = [];
+                s.push({ line: 16, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [], p: [], lv: level, act: null, desc: "重置 part 和 level_queue" });
+
+                for (let node of queue) {
+                    s.push({ line: 17, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: node.id, desc: `遍历节点 ${node.val}` });
+                    
+                    part.push(node.val);
+                    s.push({ line: 18, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: node.id, desc: `添加 ${node.val} 到当前层结果` });
+
+                    if (node.left) {
+                        level_queue.push(node.left);
+                        s.push({ line: 19, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: node.id, desc: `入队左子节点 ${node.left.val}` });
+                    }
+                    if (node.right) {
+                        level_queue.push(node.right);
+                        s.push({ line: 20, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: node.id, desc: `入队右子节点 ${node.right.val}` });
+                    }
+                }
+
+                s.push({ line: 21, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: null, desc: `检查层数奇偶：level ${level}` });
+                
+                if (level % 2 !== 0) {
+                    part.reverse();
+                    s.push({ line: 22, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: null, isReverse: true, desc: "奇数层：执行翻转操作 (Zigzag)" });
+                }
+
+                level += 1;
+                s.push({ line: 23, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: null, desc: "层数递增" });
+                
+                result.push([...part]);
+                s.push({ line: 24, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [...level_queue], p: [...part], lv: level, act: null, desc: "将当前层结果存入最终集合" });
+                
+                queue = level_queue;
+                s.push({ line: 25, res: JSON.parse(JSON.stringify(result)), q: [...queue], lq: [], p: [], lv: level, act: null, desc: "更新队列，准备处理下一层" });
+            }
+
+            s.push({ line: 26, res: JSON.parse(JSON.stringify(result)), q: [], lq: [], p: [], lv: level, act: null, desc: "所有节点遍历完成" });
+            return s;
+        }
+
+        // 4. UI 渲染函数
+        function renderTree() {
+            const svg = document.getElementById('tree-svg');
+            const container = document.getElementById('nodes-container');
+            svg.innerHTML = '';
+            container.innerHTML = '';
+
+            const step = steps[currentStep];
+
+            // 画线
+            nodes.forEach(n => {
+                if (n.parent) {
+                    const p = nodes.find(prev => prev.id === n.parent);
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", p.x);
+                    line.setAttribute("y1", p.y);
+                    line.setAttribute("x2", n.x);
+                    line.setAttribute("y2", n.y);
+                    line.setAttribute("stroke", "#e2e8f0");
+                    line.setAttribute("stroke-width", "2");
+                    if (step.lv > 1) line.setAttribute("stroke-dasharray", "4");
+                    svg.appendChild(line);
+                }
+            });
+
+            // 画点
+            nodes.forEach(n => {
+                const isActive = step.act === n.id;
+                const inQueue = step.q.some(qn => qn.id === n.id);
+                const inLQ = step.lq.some(qn => qn.id === n.id);
+
+                const nodeEl = document.createElement('div');
+                nodeEl.className = `absolute w-10 h-10 rounded-full border-2 flex items-center justify-center font-mono font-bold node-transition
+                    ${isActive ? 'bg-indigo-600 border-indigo-600 text-white scale-125 z-10 shadow-lg' : 
+                      inQueue ? 'bg-amber-100 border-amber-500 text-amber-700' :
+                      inLQ ? 'bg-blue-50 border-blue-400 text-blue-600' :
+                      'bg-white border-slate-200 text-slate-400'}`;
+                nodeEl.style.left = `${n.x - 20}px`;
+                nodeEl.style.top = `${n.y - 20}px`;
+                nodeEl.innerText = n.val;
+                container.appendChild(nodeEl);
+            });
+        }
+
+        function renderCode() {
+            const container = document.getElementById('code-container');
+            const step = steps[currentStep];
+            container.innerHTML = '';
+
+            codeLines.forEach((lineText, idx) => {
+                const lineEl = document.createElement('div');
+                const isLineActive = step.line === lineMap[idx];
+                
+                lineEl.className = `whitespace-pre px-2 py-0.5 rounded-md transition-all ${isLineActive ? 'line-active' : 'text-slate-500'}`;
+                lineEl.innerHTML = `<span class="inline-block w-4 text-slate-700 mr-2 text-[9px]">${idx + 1}</span>${lineText}`;
+                container.appendChild(lineEl);
+            });
+        }
+
+        function renderStats() {
+            const step = steps[currentStep];
+            
+            document.getElementById('level-display').innerText = step.lv;
+            document.getElementById('desc-display').innerText = step.desc;
+            document.getElementById('progress-bar').style.width = `${(currentStep / (steps.length - 1)) * 100}%`;
+
+            // 队列展示
+            const qDisp = document.getElementById('queue-display');
+            qDisp.innerHTML = step.q.length ? '' : '<span class="text-[10px] text-slate-300 italic">Empty</span>';
+            step.q.forEach(n => {
+                const item = document.createElement('div');
+                item.className = "px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] rounded font-bold";
+                item.innerText = n.val;
+                qDisp.appendChild(item);
+            });
+
+            // 当前层展示
+            const pDisp = document.getElementById('part-display');
+            const pInd = document.getElementById('part-indicator');
+            pDisp.innerHTML = step.p.length ? '' : '<span class="text-[10px] text-slate-300 italic">Empty</span>';
+            
+            pInd.className = `w-1.5 h-1.5 rounded-full ${step.isReverse ? 'bg-orange-500' : 'bg-emerald-500'}`;
+            
+            step.p.forEach(v => {
+                const item = document.createElement('div');
+                item.className = `px-2 py-0.5 border text-[10px] rounded font-bold transition-all duration-500
+                    ${step.isReverse ? 'bg-orange-50 border-orange-300 text-orange-700' : 'bg-emerald-50 border-emerald-300 text-emerald-700'}`;
+                item.innerText = v;
+                pDisp.appendChild(item);
+            });
+            if (step.isReverse) {
+                const badge = document.createElement('span');
+                badge.className = "text-[9px] text-orange-600 font-bold ml-1";
+                badge.innerText = "REVERSED";
+                pDisp.appendChild(badge);
+            }
+
+            // 最终结果展示
+            const resDisp = document.getElementById('final-result-display');
+            resDisp.innerHTML = step.res.length ? '' : '<span class="text-slate-600 italic text-[10px] text-center py-2">Waiting...</span>';
+            step.res.forEach((r, i) => {
+                const row = document.createElement('div');
+                row.className = "bg-slate-800/50 p-2 rounded border border-slate-700 flex items-center justify-between";
+                row.innerHTML = `<span class="text-[10px] text-slate-400 font-mono">Level ${i}</span>
+                                 <span class="text-indigo-300 text-[11px] font-bold font-mono">[${r.join(', ')}]</span>`;
+                resDisp.appendChild(row);
+            });
+        }
+
+        function updateUI() {
+            renderTree();
+            renderCode();
+            renderStats();
+        }
+
+        // 5. 交互控制
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const playIcon = document.getElementById('play-icon');
+            if (isPlaying) {
+                playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+                playIcon.setAttribute('viewBox', '0 0 24 24');
+                playIcon.setAttribute('fill', 'none');
+                playIcon.setAttribute('stroke', 'currentColor');
+                
+                playInterval = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateUI();
+                    } else {
+                        togglePlay();
+                    }
+                }, 600);
+            } else {
+                playIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                playIcon.setAttribute('viewBox', '0 0 24 24');
+                playIcon.setAttribute('fill', 'currentColor');
+                clearInterval(playInterval);
+            }
+        }
+
+        // 6. 初始化
+        window.onload = () => {
+            steps = generateSteps(treeData);
+            updateUI();
+
+            document.getElementById('btn-play').addEventListener('click', togglePlay);
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                if (isPlaying) togglePlay();
+                currentStep = 0;
+                updateUI();
+            });
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                if (isPlaying) togglePlay();
+                currentStep = Math.max(0, currentStep - 1);
+                updateUI();
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                if (isPlaying) togglePlay();
+                currentStep = Math.min(steps.length - 1, currentStep + 1);
+                updateUI();
+            });
+        };
+    </script>
+</body>
+</html>

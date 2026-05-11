@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树后序遍历可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .code-font { font-family: 'Fira Code', monospace; }
+
+        .node-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .line-active {
+            background-color: rgba(99, 102, 241, 0.15);
+            color: #818cf8 !important;
+            border-left: 3px solid #6366f1;
+        }
+
+        .stack-item-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 拟物化节点阴影 */
+        .node-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .node-active-shadow {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen p-4 md:p-8 overflow-hidden">
+
+    <div class="flex flex-1 gap-8 max-w-7xl mx-auto w-full overflow-hidden">
+        
+        <!-- 左侧：可视化画布 -->
+        <div class="flex-[3] flex flex-col gap-6 overflow-hidden">
+            <div class="bg-white rounded-3xl shadow-xl border border-slate-200 flex-1 relative flex flex-col overflow-hidden">
+                
+                <!-- 顶部控制栏 -->
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-20">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-indigo-600 p-2.5 rounded-xl text-white shadow-lg shadow-indigo-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-7-4 7-4"/><path d="M3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-black text-slate-800 tracking-tight">Post-order Traversal</h2>
+                            <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-[0.2em]">Left → Right → Root</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                        <button id="btn-reset" class="p-2.5 text-slate-500 hover:text-indigo-600 transition-colors hover:bg-white rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button id="btn-prev" class="p-2.5 text-slate-500 hover:text-indigo-600 transition-colors hover:bg-white rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button id="btn-play" class="h-10 px-5 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-200 active:scale-95">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button id="btn-next" class="p-2.5 text-slate-500 hover:text-indigo-600 transition-colors hover:bg-white rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 画布区域 -->
+                <div class="flex-1 relative bg-slate-50/50" id="canvas-container">
+                    <!-- 背景网格 -->
+                    <div class="absolute inset-0 bg-[radial-gradient(#e2e8f0_1.5px,transparent_1.5px)] [background-size:24px_24px] opacity-50"></div>
+                    <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                    <div id="nodes-container" class="relative z-10 w-full h-full"></div>
+                </div>
+
+                <!-- 变量与状态面板 -->
+                <div class="p-6 grid grid-cols-2 gap-6 border-t border-slate-100 bg-white/80 backdrop-blur-sm">
+                    <div class="space-y-3">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <span class="w-2 h-2 rounded-full bg-rose-500"></span> Current Stack Frame
+                        </span>
+                        <div id="stack-display" class="flex flex-wrap gap-2 min-h-[40px] items-center"></div>
+                    </div>
+                    <div class="space-y-3">
+                        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Post-order Result
+                        </span>
+                        <div id="result-display" class="flex gap-2 min-h-[40px] items-center flex-wrap"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：代码面板 -->
+        <div class="w-[420px] bg-[#0f172a] rounded-3xl overflow-hidden flex flex-col shadow-2xl border border-slate-800">
+            <div class="px-6 py-4 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+                    </div>
+                    <span class="text-slate-400 text-xs font-mono ml-2">postorder.py</span>
+                </div>
+            </div>
+            <div id="code-container" class="flex-1 p-8 font-mono text-[14px] leading-[2] overflow-y-auto no-scrollbar bg-[#0f172a]">
+                <!-- 代码行由 JS 生成 -->
+            </div>
+            <!-- 说明面板 -->
+            <div class="p-6 bg-slate-900/80 border-t border-slate-800 backdrop-blur-xl">
+                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-[0.2em] mb-3">Execution Trace</div>
+                <div id="step-desc" class="text-slate-300 text-sm leading-relaxed min-h-[60px] font-medium">
+                    准备开始执行后序遍历...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 树结构：root=1, root.right=2, 2.left=3
+        const treeData = {
+            id: 'n1', val: 1,
+            left: null,
+            right: {
+                id: 'n2', val: 2,
+                left: { id: 'n3', val: 3, left: null, right: null },
+                right: null
+            }
+        };
+
+        const nodePositions = {
+            'n1': { x: 220, y: 100 },
+            'n2': { x: 340, y: 180 },
+            'n3': { x: 260, y: 260 }
+        };
+
+        const codeLines = [
+            "def postorder_traversal(root):",
+            "    result = []",
+            "    def _postorder(root):",
+            "        if root:",
+            "            _postorder(root.left)",
+            "            _postorder(root.right)",
+            "            result.append(root.val)",
+            "    _postorder(root)",
+            "    return result"
+        ];
+
+        let steps = [];
+        let currentStep = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generateSteps() {
+            const s = [];
+            const result = [];
+            const stack = [];
+
+            s.push({ line: 1, res: [], stack: [], activeNode: null, desc: "开始执行主函数 postorder_traversal。" });
+            s.push({ line: 2, res: [], stack: [], activeNode: null, desc: "初始化结果列表 result = []" });
+            s.push({ line: 8, res: [], stack: [], activeNode: 'n1', desc: "调用辅助函数 _postorder(root)" });
+
+            function _rec(node) {
+                const nodeId = node ? node.id : 'None';
+                stack.push(nodeId);
+                
+                s.push({ line: 3, res: [...result], stack: [...stack], activeNode: nodeId, desc: `递归进入 _postorder，当前节点: ${node ? node.val : 'None'}` });
+                s.push({ line: 4, res: [...result], stack: [...stack], activeNode: nodeId, desc: `检查停止条件：节点是否非空？${node ? '是' : '否'}` });
+
+                if (node) {
+                    s.push({ line: 5, res: [...result], stack: [...stack], activeNode: nodeId, desc: `前往左子树: _postorder(root.left)` });
+                    _rec(node.left);
+
+                    s.push({ line: 6, res: [...result], stack: [...stack], activeNode: nodeId, desc: `左子树处理完毕，前往右子树: _postorder(root.right)` });
+                    _rec(node.right);
+
+                    result.push(node.val);
+                    s.push({ line: 7, res: [...result], stack: [...stack], activeNode: nodeId, desc: `左右子树均处理完，回溯访问根节点 ${node.val}` });
+                } else {
+                    s.push({ line: 4, res: [...result], stack: [...stack], activeNode: 'None', desc: "节点为空，触碰递归边界，开始返回。" });
+                }
+
+                stack.pop();
+            }
+
+            _rec(treeData);
+            s.push({ line: 9, res: [...result], stack: [], activeNode: null, desc: "遍历结束，返回最终结果 [3, 2, 1]。" });
+            return s;
+        }
+
+        function renderTree() {
+            const svg = document.getElementById('tree-svg');
+            const container = document.getElementById('nodes-container');
+            const step = steps[currentStep];
+            
+            svg.innerHTML = '';
+            container.innerHTML = '';
+
+            const drawLine = (fromId, toId) => {
+                const p1 = nodePositions[fromId];
+                const p2 = nodePositions[toId];
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y);
+                line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
+                line.setAttribute("stroke", "#cbd5e1");
+                line.setAttribute("stroke-width", "3");
+                line.setAttribute("stroke-linecap", "round");
+                svg.appendChild(line);
+            };
+
+            drawLine('n1', 'n2');
+            drawLine('n2', 'n3');
+
+            Object.keys(nodePositions).forEach(id => {
+                const pos = nodePositions[id];
+                const nodeVal = id === 'n1' ? 1 : (id === 'n2' ? 2 : 3);
+                
+                const isActive = step.activeNode === id;
+                const isVisited = step.res.includes(nodeVal);
+
+                const el = document.createElement('div');
+                el.className = `absolute w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-black transition-all duration-500 node-transition node-shadow
+                    ${isActive ? 'bg-indigo-600 text-white scale-110 z-10 node-active-shadow ring-4 ring-indigo-100' : 
+                      isVisited ? 'bg-emerald-500 text-white border-transparent' : 'bg-white text-slate-400 border border-slate-200'}`;
+                el.style.left = `${pos.x - 28}px`;
+                el.style.top = `${pos.y - 28}px`;
+                el.innerText = nodeVal;
+                container.appendChild(el);
+            });
+        }
+
+        function renderCode() {
+            const container = document.getElementById('code-container');
+            const step = steps[currentStep];
+            container.innerHTML = '';
+
+            codeLines.forEach((text, i) => {
+                const lineNum = i + 1;
+                const isActive = step.line === lineNum;
+                const div = document.createElement('div');
+                div.className = `px-4 py-0.5 rounded-lg transition-all duration-300 ${isActive ? 'line-active' : 'text-slate-500'}`;
+                div.innerHTML = `<span class="inline-block w-8 text-slate-700 mr-2 text-xs font-mono opacity-50">${lineNum}</span>${text.replace(/ /g, '&nbsp;')}`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderUI() {
+            const step = steps[currentStep];
+            renderTree();
+            renderCode();
+
+            // 结果展示
+            const resBox = document.getElementById('result-display');
+            resBox.innerHTML = '';
+            step.res.forEach(val => {
+                const tag = document.createElement('div');
+                tag.className = "w-10 h-10 flex items-center justify-center bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 stack-item-enter";
+                tag.innerText = val;
+                resBox.appendChild(tag);
+            });
+
+            // 栈展示
+            const stackBox = document.getElementById('stack-display');
+            stackBox.innerHTML = '';
+            step.stack.forEach((id, idx) => {
+                const item = document.createElement('div');
+                const isNone = id === 'None';
+                item.className = `px-3 py-1.5 text-xs font-bold rounded-lg border shadow-sm stack-item-enter ${isNone ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`;
+                item.innerText = isNone ? 'None' : `Node(${id === 'n1' ? 1 : (id === 'n2' ? 2 : 3)})`;
+                stackBox.appendChild(item);
+                if (idx < step.stack.length - 1) {
+                    const dot = document.createElement('div');
+                    dot.className = "w-1 h-1 rounded-full bg-slate-300 mx-1";
+                    stackBox.appendChild(dot);
+                }
+            });
+
+            document.getElementById('step-desc').innerText = step.desc;
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const icon = document.getElementById('play-icon');
+            if (isPlaying) {
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+                playInterval = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        renderUI();
+                    } else {
+                        togglePlay();
+                    }
+                }, 1000);
+            } else {
+                icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                clearInterval(playInterval);
+            }
+        }
+
+        window.onload = () => {
+            steps = generateSteps();
+            renderUI();
+
+            document.getElementById('btn-play').onclick = togglePlay;
+            document.getElementById('btn-reset').onclick = () => { if(isPlaying) togglePlay(); currentStep = 0; renderUI(); };
+            document.getElementById('btn-prev').onclick = () => { if(isPlaying) togglePlay(); currentStep = Math.max(0, currentStep - 1); renderUI(); };
+            document.getElementById('btn-next').onclick = () => { if(isPlaying) togglePlay(); currentStep = Math.min(steps.length - 1, currentStep + 1); renderUI(); };
+        };
+    </script>
+</body>
+</html>

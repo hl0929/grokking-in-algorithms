@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二叉树前序遍历可视化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .node-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .line-active {
+            background-color: rgba(99, 102, 241, 0.2);
+            color: #c7d2fe !important;
+            border-left: 2px solid #6366f1;
+        }
+
+        .stack-item-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex flex-col h-screen p-4 md:p-6 overflow-hidden">
+
+    <div class="flex flex-1 gap-6 max-w-7xl mx-auto w-full overflow-hidden">
+        
+        <!-- 左侧：可视化画布 -->
+        <div class="flex-[3] flex flex-col gap-4 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-1 relative flex flex-col overflow-hidden">
+                
+                <!-- 顶部控制栏 -->
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-white z-20">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.63 3 12"/><polyline points="21 12 16.5 14.63 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-800">Preorder Traversal</h2>
+                            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Root -> Left -> Right</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                        <button id="btn-reset" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button id="btn-prev" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button id="btn-play" class="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-500 transition-all shadow-sm">
+                            <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button id="btn-next" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 画布区域 -->
+                <div class="flex-1 relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px]" id="canvas-container">
+                    <svg id="tree-svg" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+                    <div id="nodes-container"></div>
+                </div>
+
+                <!-- 变量与状态面板 -->
+                <div class="p-4 grid grid-cols-2 gap-4 border-t border-slate-100 bg-white">
+                    <div class="space-y-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1">
+                           <div class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div> Recursive Call Stack
+                        </span>
+                        <div id="stack-display" class="flex flex-wrap gap-1.5 min-h-[32px]"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1">
+                           <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Traversal Result
+                        </span>
+                        <div id="result-display" class="flex gap-1.5 min-h-[32px] items-center flex-wrap"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：代码面板 -->
+        <div class="w-96 bg-[#0f172a] rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-slate-800">
+            <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+                    <span class="text-slate-300 text-xs font-mono">preorder_traversal.py</span>
+                </div>
+            </div>
+            <div id="code-container" class="flex-1 p-6 font-mono text-[13px] leading-[1.8] overflow-y-auto no-scrollbar">
+                <!-- 代码行由 JS 生成 -->
+            </div>
+            <!-- 说明面板 -->
+            <div class="p-5 bg-slate-900 border-t border-slate-800">
+                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Step Description</div>
+                <div id="step-desc" class="text-slate-300 text-xs leading-relaxed min-h-[40px]">
+                    准备开始遍历...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 树结构定义 (1 -> null, 2 -> 3)
+        const treeData = {
+            id: 'n1', val: 1,
+            left: null,
+            right: {
+                id: 'n2', val: 2,
+                left: { id: 'n3', val: 3, left: null, right: null },
+                right: null
+            }
+        };
+
+        const nodePositions = {
+            'n1': { x: 200, y: 60 },
+            'n2': { x: 300, y: 140 },
+            'n3': { x: 220, y: 220 }
+        };
+
+        const codeLines = [
+            "def preorder_traversal(root):",
+            "    result = []",
+            "    def _preorder(root):",
+            "        if root:",
+            "            result.append(root.val)",
+            "            _preorder(root.left)",
+            "            _preorder(root.right)",
+            "    _preorder(root)",
+            "    return result"
+        ];
+
+        let steps = [];
+        let currentStep = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        function generatePreorderSteps() {
+            const s = [];
+            const result = [];
+            const stack = [];
+
+            s.push({ line: 1, res: [], stack: [], activeNode: null, desc: "开始执行主函数。" });
+            s.push({ line: 2, res: [], stack: [], activeNode: null, desc: "初始化结果数组 result = []" });
+            s.push({ line: 8, res: [], stack: [], activeNode: 'n1', desc: "调用辅助函数 _preorder(root)" });
+
+            function _rec(node) {
+                const nodeId = node ? node.id : 'None';
+                stack.push(nodeId);
+                
+                // 对应 def _preorder(root):
+                s.push({ line: 3, res: [...result], stack: [...stack], activeNode: nodeId, desc: `调用 _preorder，传入节点: ${node ? node.val : 'None'}` });
+                
+                // 对应 if root:
+                s.push({ line: 4, res: [...result], stack: [...stack], activeNode: nodeId, desc: `【停止条件检查】判断节点是否非空: ${node ? '是' : '否'}` });
+
+                if (node) {
+                    result.push(node.val);
+                    s.push({ line: 5, res: [...result], stack: [...stack], activeNode: nodeId, desc: `节点存在，访问节点值 ${node.val} 并添加到结果集` });
+
+                    s.push({ line: 6, res: [...result], stack: [...stack], activeNode: nodeId, desc: `递归调用左子树 _preorder(root.left)` });
+                    _rec(node.left);
+
+                    s.push({ line: 7, res: [...result], stack: [...stack], activeNode: nodeId, desc: `递归调用右子树 _preorder(root.right)` });
+                    _rec(node.right);
+                } else {
+                    s.push({ line: 4, res: [...result], stack: [...stack], activeNode: 'None', desc: `节点为空，递归触碰停止条件，即将返回。` });
+                }
+
+                stack.pop();
+                // 递归层结束
+            }
+
+            _rec(treeData);
+            s.push({ line: 9, res: [...result], stack: [], activeNode: null, desc: "递归执行完毕，返回最终结果。" });
+            return s;
+        }
+
+        function renderTree() {
+            const svg = document.getElementById('tree-svg');
+            const container = document.getElementById('nodes-container');
+            const step = steps[currentStep];
+            
+            svg.innerHTML = '';
+            container.innerHTML = '';
+
+            const drawLine = (fromId, toId) => {
+                const p1 = nodePositions[fromId];
+                const p2 = nodePositions[toId];
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y);
+                line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
+                line.setAttribute("stroke", "#e2e8f0");
+                line.setAttribute("stroke-width", "2");
+                svg.appendChild(line);
+            };
+
+            drawLine('n1', 'n2');
+            drawLine('n2', 'n3');
+
+            Object.keys(nodePositions).forEach(id => {
+                const pos = nodePositions[id];
+                const nodeVal = id === 'n1' ? 1 : (id === 'n2' ? 2 : 3);
+                
+                const isActive = step.activeNode === id;
+                const isVisited = step.res.includes(nodeVal);
+
+                const el = document.createElement('div');
+                el.className = `absolute w-12 h-12 rounded-full border-2 flex items-center justify-center font-bold transition-all duration-300 node-transition
+                    ${isActive ? 'bg-indigo-600 border-indigo-600 text-white scale-125 z-10 shadow-xl' : 
+                      isVisited ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400'}`;
+                el.style.left = `${pos.x - 24}px`;
+                el.style.top = `${pos.y - 24}px`;
+                el.innerText = nodeVal;
+                container.appendChild(el);
+            });
+        }
+
+        function renderCode() {
+            const container = document.getElementById('code-container');
+            const step = steps[currentStep];
+            container.innerHTML = '';
+
+            codeLines.forEach((text, i) => {
+                const lineNum = i + 1;
+                const isActive = step.line === lineNum;
+                const div = document.createElement('div');
+                div.className = `px-3 py-1 rounded transition-colors ${isActive ? 'line-active' : 'text-slate-400'}`;
+                div.innerHTML = `<span class="inline-block w-6 text-slate-600 mr-4 text-[10px]">${lineNum}</span>${text.replace(/ /g, '&nbsp;')}`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderUI() {
+            const step = steps[currentStep];
+            renderTree();
+            renderCode();
+
+            const resBox = document.getElementById('result-display');
+            resBox.innerHTML = '';
+            step.res.forEach(val => {
+                const tag = document.createElement('div');
+                tag.className = "px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg shadow-sm stack-item-enter";
+                tag.innerText = val;
+                resBox.appendChild(tag);
+            });
+
+            const stackBox = document.getElementById('stack-display');
+            stackBox.innerHTML = '';
+            step.stack.forEach((id, idx) => {
+                const item = document.createElement('div');
+                item.className = `px-2 py-1 text-[10px] font-mono rounded border ${id === 'None' ? 'bg-slate-100 border-slate-300 text-slate-500' : 'bg-rose-50 border-rose-200 text-rose-600'} stack-item-enter`;
+                item.innerText = `_preorder(${id === 'None' ? 'None' : 'node' + id.slice(1)})`;
+                stackBox.appendChild(item);
+                if (idx < step.stack.length - 1) {
+                    const arrow = document.createElement('span');
+                    arrow.className = "text-slate-300 text-[10px] self-center";
+                    arrow.innerText = "→";
+                    stackBox.appendChild(arrow);
+                }
+            });
+
+            document.getElementById('step-desc').innerText = step.desc;
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const icon = document.getElementById('play-icon');
+            if (isPlaying) {
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+                playInterval = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        renderUI();
+                    } else {
+                        togglePlay();
+                    }
+                }, 800);
+            } else {
+                icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                clearInterval(playInterval);
+            }
+        }
+
+        window.onload = () => {
+            steps = generatePreorderSteps();
+            renderUI();
+
+            document.getElementById('btn-play').onclick = togglePlay;
+            document.getElementById('btn-reset').onclick = () => { if(isPlaying) togglePlay(); currentStep = 0; renderUI(); };
+            document.getElementById('btn-prev').onclick = () => { if(isPlaying) togglePlay(); currentStep = Math.max(0, currentStep - 1); renderUI(); };
+            document.getElementById('btn-next').onclick = () => { if(isPlaying) togglePlay(); currentStep = Math.min(steps.length - 1, currentStep + 1); renderUI(); };
+        };
+    </script>
+</body>
+</html>
